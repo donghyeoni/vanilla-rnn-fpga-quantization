@@ -1,0 +1,37 @@
+[cell 00 result]
+'\nVanilla RNN의 목적: 미완성 단어 완성\n(미완성이란, 마지막 한 글자가 생략된 상태를 의미한다. 또한 단어는 소문자 알파벳으로 구성된다.) \n'
+[cell 03 stream stdout]
+훈련 단어 수: 263739
+테스트 단어 수: 13881
+
+[cell 06 stream stdout]
+[01] train_loss 1.3909 | test_loss 1.2498 | test_acc 0.60
+[02] train_loss 1.1831 | test_loss 1.1676 | test_acc 0.62
+[03] train_loss 1.1192 | test_loss 1.1268 | test_acc 0.63
+[04] train_loss 1.0837 | test_loss 1.1048 | test_acc 0.64
+[05] train_loss 1.0577 | test_loss 1.0790 | test_acc 0.64
+[06] train_loss 1.0411 | test_loss 1.0840 | test_acc 0.64
+[07] train_loss 1.0262 | test_loss 1.0593 | test_acc 0.64
+[08] train_loss 1.0151 | test_loss 1.0491 | test_acc 0.65
+[09] train_loss 1.0053 | test_loss 1.0497 | test_acc 0.66
+[10] train_loss 0.9998 | test_loss 1.0460 | test_acc 0.65
+[11] train_loss 0.9923 | test_loss 1.0386 | test_acc 0.65
+[12] train_loss 0.9874 | test_loss 1.0363 | test_acc 0.66
+[13] train_loss 0.9830 | test_loss 1.0259 | test_acc 0.66
+[14] train_loss 0.9786 | test_loss 1.0265 | test_acc 0.66
+[15] train_loss 0.9766 | test_loss 1.0398 | test_acc 0.66
+[16] train_loss 0.9726 | test_loss 1.0439 | test_acc 0.66
+[17] train_loss 0.9675 | test_loss 1.0243 | test_acc 0.66
+[18] train_loss 0.9660 | test_loss 1.0331 | test_acc 0.65
+[19] train_loss 0.9626 | test_loss 1.0250 | test_acc 0.66
+[20] train_loss 0.9606 | test_loss 1.0267 | test_acc 0.66
+
+[cell 07 stream stdout]
+✅ 모델 가중치 저장 완료!
+
+[cell 08 stream stdout]
+prefix='hell' → predicted last char: 's'
+prefix='worl' → predicted last char: 's'
+prefix='appl' → predicted last char: 'e'
+prefix='kore' → predicted last char: 's'
+prefix='knoc' → predicted last char: 'k'

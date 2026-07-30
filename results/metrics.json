@@ -1,0 +1,7 @@
+{
+  "final_test_acc": 1.0,
+  "epochs": 15,
+  "quant_format": "Q1.15 int16 (scale=32768)",
+  "vocab_size": 26,
+  "hidden_size": 128
+}

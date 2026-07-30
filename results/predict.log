@@ -1,0 +1,5 @@
+prefix='hell' → predicted last char: 'm'
+prefix='worl' → predicted last char: 'm'
+prefix='appl' → predicted last char: 'm'
+prefix='kore' → predicted last char: 'f'
+prefix='knoc' → predicted last char: 'd'

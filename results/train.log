@@ -1,0 +1,18 @@
+훈련 단어 수: 4000
+테스트 단어 수: 800
+[01] train_loss 2.8654 | test_loss 2.3644 | test_acc 0.87
+[02] train_loss 1.8678 | test_loss 1.4762 | test_acc 0.99
+[03] train_loss 0.9906 | test_loss 0.7150 | test_acc 1.00
+[04] train_loss 0.3976 | test_loss 0.2854 | test_acc 1.00
+[05] train_loss 0.1512 | test_loss 0.1294 | test_acc 1.00
+[06] train_loss 0.0740 | test_loss 0.0752 | test_acc 1.00
+[07] train_loss 0.0462 | test_loss 0.0517 | test_acc 1.00
+[08] train_loss 0.0331 | test_loss 0.0391 | test_acc 1.00
+[09] train_loss 0.0255 | test_loss 0.0311 | test_acc 1.00
+[10] train_loss 0.0206 | test_loss 0.0255 | test_acc 1.00
+[11] train_loss 0.0171 | test_loss 0.0214 | test_acc 1.00
+[12] train_loss 0.0145 | test_loss 0.0183 | test_acc 1.00
+[13] train_loss 0.0124 | test_loss 0.0158 | test_acc 1.00
+[14] train_loss 0.0108 | test_loss 0.0139 | test_acc 1.00
+[15] train_loss 0.0096 | test_loss 0.0123 | test_acc 1.00
+모델 가중치 저장 완료! -> C:\Users\SSAFY\Desktop\git_upload\vanilla-rnn-fpga-quantization\weights\nextword_weights.pth
