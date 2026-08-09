@@ -1,8 +1,8 @@
 """Regenerate every committed artifact under ``results/`` in one command.
 
-The original notebooks trained on a private word list (``/home/dh/dataset``).
 To make the full pipeline reproducible with **no external data**, this script
-synthesizes a deterministic, *learnable* word corpus and runs the whole flow:
+synthesizes a deterministic, *learnable* word corpus and runs the whole flow
+(the real word-list dataset is distributed separately via Releases):
 
     train  ->  export weights to CSV  ->  quantize to Q1.15 + emit C header
 
