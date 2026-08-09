@@ -1,0 +1,14 @@
+# dataset (download from Releases or synthesize via run_all.py)
+data/
+
+# generated weight artifacts
+weights/
+weights_csv/
+weights_for_FPGA/
+*.pth
+
+# python
+__pycache__/
+*.pyc
+venv/
+.ipynb_checkpoints/

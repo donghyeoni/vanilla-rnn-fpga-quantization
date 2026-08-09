@@ -1,0 +1,5 @@
+prefix='hell' → predicted last char: 'a'
+prefix='worl' → predicted last char: 'e'
+prefix='appl' → predicted last char: 'e'
+prefix='tabl' → predicted last char: 'e'
+prefix='phon' → predicted last char: 'a'

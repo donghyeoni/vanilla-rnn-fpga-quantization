@@ -22,7 +22,7 @@ from . import config
 
 def load_state(weight_path):
     # 0. 파일 불러와서 shape 확인
-    state = torch.load(weight_path, map_location="cpu")
+    state = torch.load(weight_path, map_location="cpu", weights_only=True)
     for name, tensor in state.items():
         print(f"{name}: shape = {tuple(tensor.shape)}")
     return state

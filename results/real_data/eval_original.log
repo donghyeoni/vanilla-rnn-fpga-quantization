@@ -1,0 +1,4 @@
+훈련 단어 수: 263739
+테스트 단어 수: 13881
+weights: nextword_weights_original.pth
+test_loss 0.9650 | test_acc 0.6750

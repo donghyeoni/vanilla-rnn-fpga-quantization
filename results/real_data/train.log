@@ -1,0 +1,23 @@
+훈련 단어 수: 263739
+테스트 단어 수: 13881
+[01] train_loss 1.3913 | test_loss 1.2598 | test_acc 0.59
+[02] train_loss 1.1803 | test_loss 1.1643 | test_acc 0.62
+[03] train_loss 1.1147 | test_loss 1.1191 | test_acc 0.64
+[04] train_loss 1.0782 | test_loss 1.0857 | test_acc 0.65
+[05] train_loss 1.0555 | test_loss 1.0731 | test_acc 0.65
+[06] train_loss 1.0366 | test_loss 1.0580 | test_acc 0.66
+[07] train_loss 1.0246 | test_loss 1.0458 | test_acc 0.66
+[08] train_loss 1.0143 | test_loss 1.0623 | test_acc 0.66
+[09] train_loss 1.0059 | test_loss 1.0437 | test_acc 0.66
+[10] train_loss 0.9994 | test_loss 1.0346 | test_acc 0.66
+[11] train_loss 0.9924 | test_loss 1.0417 | test_acc 0.66
+[12] train_loss 0.9880 | test_loss 1.0315 | test_acc 0.66
+[13] train_loss 0.9834 | test_loss 1.0370 | test_acc 0.66
+[14] train_loss 0.9795 | test_loss 1.0343 | test_acc 0.66
+[15] train_loss 0.9751 | test_loss 1.0495 | test_acc 0.65
+[16] train_loss 0.9725 | test_loss 1.0264 | test_acc 0.66
+[17] train_loss 0.9701 | test_loss 1.0238 | test_acc 0.66
+[18] train_loss 0.9658 | test_loss 1.0288 | test_acc 0.66
+[19] train_loss 0.9658 | test_loss 1.0144 | test_acc 0.67
+[20] train_loss 0.9602 | test_loss 1.0226 | test_acc 0.66
+모델 가중치 저장 완료! -> weights/nextword_weights.pth

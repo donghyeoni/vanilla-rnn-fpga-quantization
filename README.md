@@ -51,21 +51,24 @@ train  ──▶  export CSV  ──▶  quantize to Q1.15  ──▶  C header 
 
 ## Dataset
 
-The model reads a generic English **word list** from local `.txt` files (one file for
+The model reads an English **word list** from local `.txt` files (one file for
 training, one for testing). Each file is lowercased and only alphabetic runs of length
 `>= 2` are kept (`load_words_from_txt`).
 
-**No dataset is required to reproduce the pipeline.** `run_all.py` synthesizes a
-deterministic, *learnable* corpus (each word is `prefix + successor(prefix[-1])`,
-e.g. `ab` → `c`) into `data/train.txt` / `data/test.txt` and runs the whole flow
-with fixed seeds — the committed results under `results/` come from this.
+Two datasets are used in this project:
 
-You can still supply your own English word list at `data/train.txt` /
-`data/test.txt` (or via `--train` / `--test`); any plain-text corpus works.
+- **Real word list** (263,739 train / 13,881 test words) — the dataset the released
+  weights were trained on. Download `train_original.txt` / `test_original.txt` from
+  [Releases](https://github.com/donghyeoni/RNN-HW-accelerator/releases) and place them
+  at `data/train.txt` / `data/test.txt` (or point at them via `--train` / `--test`).
+  The resulting metrics live under [`results/real_data/`](results/real_data/).
+- **Synthetic corpus** — **no download is required to reproduce the pipeline.**
+  `run_all.py` synthesizes a deterministic, *learnable* corpus (each word is
+  `prefix + successor(prefix[-1])`, e.g. `ab` → `c`) into `data/train.txt` /
+  `data/test.txt` and runs the whole flow with fixed seeds — the committed results
+  directly under `results/` come from this.
 
-> The original notebooks hardcoded Linux paths
-> (`/home/dh/dataset/words/Train/train.txt` and `.../Test/test.txt`); these are now
-> configurable via `src/config.py` and CLI arguments.
+Any other plain-text English corpus at `data/train.txt` / `data/test.txt` works too.
 
 ## Repository structure
 
@@ -75,12 +78,13 @@ vanilla-rnn-fpga-quantization/
 │   ├── config.py         # hidden_size, frac_bits(=15), paths, hyperparameters
 │   ├── model.py          # VanillaRNN + LastCharDataset, collate_lastchar, load_words_from_txt
 │   ├── train.py          # train_epoch, evaluate, CLI entrypoint (build loaders, train, save .pth)
+│   ├── evaluate.py       # evaluate a saved .pth on the test set (no training)
 │   ├── predict.py        # predict_last_char inference / demo
 │   ├── weight_export.py  # load .pth, inspect shapes, export tensors -> CSV
 │   └── quantize.py        # quantize_to_int16 (Q1.15), fixed-point reference RNN, dump_c_array -> .h
 ├── run_all.py            # synthesize a learnable corpus + run train->export->quantize->predict
-├── results/              # committed artifacts: logs, metrics.json, sample C header + CSV
-│   └── notebook_reference/  # logs preserved from the original notebooks
+├── results/              # committed artifacts (synthetic corpus): logs, metrics.json, sample C header + CSV
+│   └── real_data/        # committed artifacts from the real word-list dataset (see Releases)
 ├── requirements.txt
 ├── RESULTS.md
 ├── .gitignore
@@ -110,13 +114,16 @@ package-relative imports, so use `python -m`):
 # 1. Train (saves weights/nextword_weights.pth by default)
 python -m src.train --train data/train.txt --test data/test.txt --epochs 20 --seed 0
 
-# 2. Inference demo
+# 2. Evaluate a saved .pth on the test set (e.g. weights downloaded from Releases)
+python -m src.evaluate --weights weights/nextword_weights.pth --test data/test.txt
+
+# 3. Inference demo
 python -m src.predict --weights weights/nextword_weights.pth --prefixes hell worl appl
 
-# 3. Export weights to per-tensor CSV
+# 4. Export weights to per-tensor CSV
 python -m src.weight_export --weights weights/nextword_weights.pth --out weights_csv
 
-# 4. Quantize to Q1.15 and emit the C header
+# 5. Quantize to Q1.15 and emit the C header
 python -m src.quantize --csv weights_csv --header weights_for_FPGA/rnn_weights_q15.h
 ```
 
@@ -135,14 +142,20 @@ excluded from version control (see `.gitignore`):
 
 A committed **sample** of these (the generated `rnn_weights_q15.h` header and
 `Wx.csv`) plus the run logs and `metrics.json` live under `results/` — see
-[RESULTS.md](RESULTS.md). The original notebooks have been removed; their logs
-are preserved under `results/notebook_reference/`.
+[RESULTS.md](RESULTS.md).
 
-### Weight filename
+### Releases
 
-The original notebooks referenced `nextword_weights2.pth`, but the file actually present
-on disk was `nextword_weights.pth`. This project **standardizes on
-`nextword_weights.pth`** (see `WEIGHTS_FILENAME` in `src/config.py`).
+Trained weights and the real word-list dataset are distributed via
+[Releases](https://github.com/donghyeoni/RNN-HW-accelerator/releases):
+
+- `nextword_weights_original.pth` — weights trained on the real word list
+  (test accuracy ≈ 0.68, see [RESULTS.md](RESULTS.md)).
+- `nextword_weights_synthetic.pth` — weights trained on the synthetic corpus
+  (paired with the artifacts directly under `results/`).
+- `train_original.txt` / `test_original.txt` — the real word-list dataset.
+- `train_synthetic.txt` / `test_synthetic.txt` — one instance of the synthetic
+  corpus (regenerable with `run_all.py`).
 
 ### FPGA target
 

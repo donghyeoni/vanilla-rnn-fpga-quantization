@@ -1,0 +1,12 @@
+{
+  "dataset": "real word list (Releases: train_original.txt / test_original.txt)",
+  "train_words": 263739,
+  "test_words": 13881,
+  "epochs": 20,
+  "seed": 0,
+  "final_test_acc": 0.66,
+  "released_original_weights_test_acc": 0.675,
+  "quant_format": "Q1.15 int16 (scale=32768)",
+  "vocab_size": 26,
+  "hidden_size": 128
+}

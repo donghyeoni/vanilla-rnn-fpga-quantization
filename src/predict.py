@@ -45,7 +45,7 @@ def load_model(weights_path, device="cpu"):
         hidden_size=config.HIDDEN_SIZE,
         output_size=VOCAB_SIZE,
     ).to(device)
-    state = torch.load(weights_path, map_location=device)
+    state = torch.load(weights_path, map_location=device, weights_only=True)
     model.load_state_dict(state)
     return model
 
