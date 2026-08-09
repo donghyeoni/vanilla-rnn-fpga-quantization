@@ -33,9 +33,11 @@ import sys
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(REPO_ROOT, "results")
 DATA_DIR = os.path.join(REPO_ROOT, "data")
-WEIGHTS = os.path.join(REPO_ROOT, "weights", "nextword_weights.pth")
-CSV_DIR = os.path.join(REPO_ROOT, "weights_csv")
-HEADER = os.path.join(REPO_ROOT, "weights_for_FPGA", "rnn_weights_q15.h")
+# subprocess args stay relative to REPO_ROOT (run() sets cwd) so logs don't
+# embed machine-specific absolute paths
+WEIGHTS = "weights/nextword_weights.pth"
+CSV_DIR = "weights_csv"
+HEADER = "weights_for_FPGA/rnn_weights_q15.h"
 
 
 def make_corpus(path, n, seed):
@@ -80,10 +82,12 @@ def main():
     run("predict", ["-m", "src.predict", "--weights", WEIGHTS])
 
     # copy the headline artifacts into results/
-    if os.path.exists(HEADER):
-        shutil.copy(HEADER, os.path.join(OUT_DIR, "rnn_weights_q15.h"))
-    if os.path.exists(os.path.join(CSV_DIR, "Wx.csv")):
-        shutil.copy(os.path.join(CSV_DIR, "Wx.csv"), os.path.join(OUT_DIR, "Wx.csv"))
+    header_abs = os.path.join(REPO_ROOT, HEADER)
+    wx_abs = os.path.join(REPO_ROOT, CSV_DIR, "Wx.csv")
+    if os.path.exists(header_abs):
+        shutil.copy(header_abs, os.path.join(OUT_DIR, "rnn_weights_q15.h"))
+    if os.path.exists(wx_abs):
+        shutil.copy(wx_abs, os.path.join(OUT_DIR, "Wx.csv"))
 
     # parse final test accuracy from the training log
     accs = re.findall(r"test_acc\s+([\d.]+)", train_out)

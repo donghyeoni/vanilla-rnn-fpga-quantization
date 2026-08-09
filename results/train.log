@@ -15,4 +15,4 @@
 [13] train_loss 0.0124 | test_loss 0.0158 | test_acc 1.00
 [14] train_loss 0.0108 | test_loss 0.0139 | test_acc 1.00
 [15] train_loss 0.0096 | test_loss 0.0123 | test_acc 1.00
-모델 가중치 저장 완료! -> C:\Users\SSAFY\Desktop\git_upload\vanilla-rnn-fpga-quantization\weights\nextword_weights.pth
+모델 가중치 저장 완료! -> weights/nextword_weights.pth

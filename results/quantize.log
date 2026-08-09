@@ -3,4 +3,4 @@ Wh: shape=(128, 128), dtype=int16
 b: shape=(128,), dtype=int16
 Wo: shape=(128, 26), dtype=int16
 bo: shape=(26,), dtype=int16
-C header written -> C:\Users\SSAFY\Desktop\git_upload\vanilla-rnn-fpga-quantization\weights_for_FPGA\rnn_weights_q15.h
+C header written -> weights_for_FPGA/rnn_weights_q15.h

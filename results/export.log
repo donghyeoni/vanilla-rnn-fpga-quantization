@@ -26,8 +26,8 @@ tensor([[-0.1082,  0.3315, -0.0406, -0.1419,  0.1266],
 tensor([-0.0410, -0.0018, -0.0472, -0.0150,  0.0106,  0.0230, -0.0156, -0.0006,
          0.0519, -0.0291])
 
-saved: C:\Users\SSAFY\Desktop\git_upload\vanilla-rnn-fpga-quantization\weights_csv\Wx.csv
-saved: C:\Users\SSAFY\Desktop\git_upload\vanilla-rnn-fpga-quantization\weights_csv\Wh.csv
-saved: C:\Users\SSAFY\Desktop\git_upload\vanilla-rnn-fpga-quantization\weights_csv\b.csv
-saved: C:\Users\SSAFY\Desktop\git_upload\vanilla-rnn-fpga-quantization\weights_csv\Wo.csv
-saved: C:\Users\SSAFY\Desktop\git_upload\vanilla-rnn-fpga-quantization\weights_csv\bo.csv
+saved: weights_csv/Wx.csv
+saved: weights_csv/Wh.csv
+saved: weights_csv/b.csv
+saved: weights_csv/Wo.csv
+saved: weights_csv/bo.csv
