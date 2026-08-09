@@ -2,8 +2,10 @@
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg) ![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg) ![PyTorch](https://img.shields.io/badge/PyTorch-2.x-ee4c2c.svg)
 
-A from-scratch **vanilla RNN** trained for a *last-character completion* task, then
-exported and **quantized to Q1.15 fixed-point** for deployment on an FPGA.
+An end-to-end **train → export → quantize → C header** pipeline that turns a
+from-scratch **vanilla RNN** into **Q1.15 fixed-point** integer weights ready to be
+`#include`d in an FPGA design. The RNN itself is trained on a simple
+*last-character completion* task — it exists to give the pipeline a real model to carry.
 
 The RNN is implemented with raw `nn.Parameter` tensors (i.e. **not** `torch.nn.RNN`),
 so the exact recurrence and its weights are fully transparent and portable to hardware.
@@ -11,6 +13,10 @@ so the exact recurrence and its weights are fully transparent and portable to ha
 > Note: source comments are written in Korean and are preserved intentionally.
 
 ## Overview
+
+The prediction task is deliberately simple — the focus of this project is the
+**fixed-point export path to hardware** (per-tensor CSV → Q1.15 int16 → C header),
+not the classifier itself.
 
 **Task — last-character completion.** Given a lowercase word with its final letter
 removed (e.g. `"hell"`), the model predicts the missing last character (`"o"`). The
@@ -50,6 +56,9 @@ train  ──▶  export CSV  ──▶  quantize to Q1.15  ──▶  C header 
 4. **Emit** a C header of `const int16_t` arrays for FPGA / HLS use.
 
 ## Results
+
+Accuracy here is a **pipeline verification metric** — the deliverable is the
+quantized hardware weights, not the classifier:
 
 | dataset | train / test words | final test accuracy |
 | --- | --- | --- |
