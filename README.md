@@ -97,7 +97,7 @@ Two datasets are used in this project:
   `run_all.py` synthesizes a deterministic, *learnable* corpus (each word is
   `prefix + successor(prefix[-1])`, e.g. `ab` → `c`) into `data/train.txt` /
   `data/test.txt` and runs the whole flow with fixed seeds — the committed results
-  directly under `results/` come from this.
+  under `results/synthetic/` come from this.
 
 Any other plain-text English corpus at `data/train.txt` / `data/test.txt` works too.
 
@@ -137,7 +137,7 @@ pip install -r requirements.txt
 Reproduce the full pipeline end-to-end on a synthetic corpus (no data needed):
 
 ```bash
-python run_all.py        # writes results/ (logs, metrics.json, C header), see RESULTS.md
+python run_all.py        # writes results/synthetic/ (logs, metrics.json, C header), see RESULTS.md
 ```
 
 Or run the modules individually from the repository root (they use
