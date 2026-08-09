@@ -6,7 +6,7 @@ Two result sets are committed:
   command with no external data: `python run_all.py`
 - [`results/real_data/`](results/real_data/) — **real English word list** (the
   dataset and the resulting weights are in
-  [Releases](https://github.com/donghyeoni/RNN-HW-accelerator/releases))
+  [Releases](https://github.com/donghyeoni/vanilla-rnn-fpga-quantization/releases))
 
 | | synthetic corpus | real word list |
 | --- | --- | --- |
@@ -76,7 +76,7 @@ is essentially lossless and the integer datapath reproduces the float model exac
 ## Real word list
 
 The same pipeline run on the real English word list from
-[Releases](https://github.com/donghyeoni/RNN-HW-accelerator/releases)
+[Releases](https://github.com/donghyeoni/vanilla-rnn-fpga-quantization/releases)
 (`train_original.txt` / `test_original.txt` → `data/train.txt` / `data/test.txt`),
 20 epochs, seed 0. Artifacts under [`results/real_data/`](results/real_data/).
 

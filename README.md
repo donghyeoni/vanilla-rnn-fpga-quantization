@@ -90,7 +90,7 @@ Two datasets are used in this project:
 
 - **Real word list** (263,739 train / 13,881 test words) — the dataset the released
   weights were trained on. Download `train_original.txt` / `test_original.txt` from
-  [Releases](https://github.com/donghyeoni/RNN-HW-accelerator/releases) and place them
+  [Releases](https://github.com/donghyeoni/vanilla-rnn-fpga-quantization/releases) and place them
   at `data/train.txt` / `data/test.txt` (or point at them via `--train` / `--test`).
   The resulting metrics live under [`results/real_data/`](results/real_data/).
 - **Synthetic corpus** — **no download is required to reproduce the pipeline.**
@@ -183,7 +183,7 @@ A committed **sample** of these (the generated `rnn_weights_q15.h` header and
 ### Releases
 
 Trained weights and the real word-list dataset are distributed via
-[Releases](https://github.com/donghyeoni/RNN-HW-accelerator/releases):
+[Releases](https://github.com/donghyeoni/vanilla-rnn-fpga-quantization/releases):
 
 - `nextword_weights_original.pth` — weights trained on the real word list
   (test accuracy ≈ 0.68, see [RESULTS.md](RESULTS.md)).
