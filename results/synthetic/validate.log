@@ -1,0 +1,5 @@
+weights: nextword_weights_synthetic.pth
+test words: 800
+float    test_acc 1.0000
+fixed    test_acc 1.0000  (Q1.15 int16 weights, wide accumulate >> 15, saturate before tanh)
+float vs fixed prediction agreement: 1.0000

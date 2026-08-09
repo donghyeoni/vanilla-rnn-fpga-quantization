@@ -60,10 +60,16 @@ train  ──▶  export CSV  ──▶  quantize to Q1.15  ──▶  C header 
 Accuracy here is a **pipeline verification metric** — the deliverable is the
 quantized hardware weights, not the classifier:
 
-| dataset | train / test words | final test accuracy |
-| --- | --- | --- |
-| real English word list | 263,739 / 13,881 | **0.66** (released weights: **0.675**) |
-| synthetic successor-rule corpus | 4,000 / 800 | **1.00** |
+| dataset | train / test words | final test accuracy | float vs Q1.15 agreement |
+| --- | --- | --- | --- |
+| real English word list | 263,739 / 13,881 | **0.66** (released weights: **0.675**) | 0.78 |
+| synthetic successor-rule corpus | 4,000 / 800 | **1.00** | **1.00** |
+
+The last column is the share of test words where the **integer-only datapath**
+(the one the FPGA implements, simulated in software — no board required) predicts
+the same character as the float model. Weights within the Q1.15 range quantize
+losslessly (1.00); the real-data weights partially exceed it, which is a
+documented limitation — see [RESULTS.md](RESULTS.md).
 
 On the real word list the last character is inherently ambiguous (`hel` → `hell`?
 `help`?), so accuracy saturates in the high 0.6s — that is the ceiling of the task,
@@ -106,9 +112,11 @@ vanilla-rnn-fpga-quantization/
 │   ├── evaluate.py       # evaluate a saved .pth on the test set (no training)
 │   ├── predict.py        # predict_last_char inference / demo
 │   ├── weight_export.py  # load .pth, inspect shapes, export tensors -> CSV
-│   └── quantize.py        # quantize_to_int16 (Q1.15), fixed-point reference RNN, dump_c_array -> .h
-├── run_all.py            # synthesize a learnable corpus + run train->export->quantize->predict
-├── results/              # committed artifacts (synthetic corpus): logs, metrics.json, sample C header + CSV
+│   ├── quantize.py       # quantize_to_int16 (Q1.15), fixed-point reference RNN, dump_c_array -> .h
+│   └── validate_quantization.py  # float vs Q1.15 integer datapath, prediction agreement
+├── run_all.py            # synthesize a learnable corpus + run train->export->quantize->validate->predict
+├── results/
+│   ├── synthetic/        # committed artifacts (synthetic corpus): logs, metrics.json, sample C header + CSV
 │   └── real_data/        # committed artifacts from the real word-list dataset (see Releases)
 ├── requirements.txt
 ├── RESULTS.md
@@ -150,6 +158,9 @@ python -m src.weight_export --weights weights/nextword_weights.pth --out weights
 
 # 5. Quantize to Q1.15 and emit the C header
 python -m src.quantize --csv weights_csv --header weights_for_FPGA/rnn_weights_q15.h
+
+# 6. Validate the quantized weights: float vs integer-only datapath (no FPGA needed)
+python -m src.validate_quantization --weights weights/nextword_weights.pth --test data/test.txt
 ```
 
 ## Notes
@@ -188,7 +199,10 @@ The generated `rnn_weights_q15.h` exposes the five parameters as `const int16_t`
 in **Q1.15** format (1 sign bit, 15 fractional bits). It is intended to be `#include`d
 into an FPGA/HLS project (e.g. Xilinx Vitis HLS or a Verilog design) where the recurrence
 is implemented with integer arithmetic. The `rnn_step_fixed` reference in
-`src/quantize.py` mirrors the intended hardware datapath: int32 accumulation for
-matrix-vector products followed by an arithmetic shift right by `FRAC_BITS` back to
-Q1.15, with `tanh` shown as a float reference to be replaced by a hardware-friendly
-approximation (e.g. LUT) on device.
+`src/quantize.py` mirrors the intended hardware datapath: wide accumulation for
+matrix-vector products (as in DSP accumulators), an arithmetic shift right by
+`FRAC_BITS`, and **saturation** (not wraparound) before the `tanh` nonlinearity,
+with `tanh` shown as a float reference to be replaced by a hardware-friendly
+approximation (e.g. LUT) on device. `src/validate_quantization.py` runs this
+integer datapath against the float model over the full test set — see
+[Results](#results) — so the quantized weights are verified without any board.

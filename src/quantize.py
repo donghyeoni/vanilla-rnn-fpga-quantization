@@ -57,10 +57,18 @@ def fixed_mul(a, b):
     return (tmp >> FRAC_BITS).astype(np.int16)
 
 
+def saturate_int16(a):
+    # 랩어라운드 대신 포화(saturation) — 하드웨어 고정소수점의 표준 동작
+    return np.clip(a, config.INT16_MIN, config.INT16_MAX).astype(np.int16)
+
+
 def fixed_matvec(W, x):
     # W: (out, in), x: (in,)
-    tmp = W.astype(np.int32) @ x.astype(np.int32)  # int32 누산
-    return (tmp >> FRAC_BITS).astype(np.int16)
+    # 누산은 넓은 정수로 유지한다 (int16 곱 128개의 합은 int32도 넘칠 수 있다 —
+    # 하드웨어에서는 DSP의 넓은 누산기(예: 48비트)에 해당). 시프트 후에도
+    # int16으로 줄이지 않고 넓은 타입으로 반환하고, 필요한 지점에서만 포화시킨다.
+    tmp = W.astype(np.int64) @ x.astype(np.int64)
+    return tmp >> FRAC_BITS
 
 
 def fixed_tanh(x):
@@ -73,9 +81,12 @@ def fixed_tanh(x):
 def rnn_step_fixed(x_t_q, h_prev_q, q):
     # x_t_q, h_prev_q : Q1.15 정수 벡터
     # q : 양자화된 가중치 딕셔너리 {Wx, Wh, b, Wo, bo}
-    z = fixed_matvec(q["Wx"].T, x_t_q) + fixed_matvec(q["Wh"].T, h_prev_q) + q["b"]
-    h_t = fixed_tanh(z)
-    y = fixed_matvec(q["Wo"].T, h_t) + q["bo"]
+    # pre-activation은 tanh에 넣기 직전에만 int16으로 포화시킨다
+    # (tanh는 |z|>~3에서 어차피 ±1로 포화하므로 정보 손실이 거의 없다).
+    z = fixed_matvec(q["Wx"].T, x_t_q) + fixed_matvec(q["Wh"].T, h_prev_q) + q["b"].astype(np.int64)
+    h_t = fixed_tanh(saturate_int16(z))
+    # 출력 로짓은 argmax 비교용이므로 포화 없이 넓은 정수 그대로 반환한다.
+    y = fixed_matvec(q["Wo"].T, h_t) + q["bo"].astype(np.int64)
     return h_t, y
 
 

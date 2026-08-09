@@ -31,7 +31,7 @@ import subprocess
 import sys
 
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
-OUT_DIR = os.path.join(REPO_ROOT, "results")
+OUT_DIR = os.path.join(REPO_ROOT, "results", "synthetic")
 DATA_DIR = os.path.join(REPO_ROOT, "data")
 # subprocess args stay relative to REPO_ROOT (run() sets cwd) so logs don't
 # embed machine-specific absolute paths
@@ -79,6 +79,8 @@ def main():
     run("export", ["-m", "src.weight_export", "--weights", WEIGHTS,
                    "--out", CSV_DIR, "--inspect"])
     run("quantize", ["-m", "src.quantize", "--csv", CSV_DIR, "--header", HEADER])
+    run("validate", ["-m", "src.validate_quantization", "--weights", WEIGHTS,
+                     "--test", "data/test.txt"])
     run("predict", ["-m", "src.predict", "--weights", WEIGHTS])
 
     # copy the headline artifacts into results/
@@ -101,7 +103,7 @@ def main():
     with open(os.path.join(OUT_DIR, "metrics.json"), "w") as f:
         json.dump(metrics, f, indent=2)
 
-    print(f"Done. final_test_acc={metrics['final_test_acc']}. Artifacts under results/.")
+    print(f"Done. final_test_acc={metrics['final_test_acc']}. Artifacts under results/synthetic/.")
 
 
 if __name__ == "__main__":
