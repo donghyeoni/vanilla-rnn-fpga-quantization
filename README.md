@@ -49,6 +49,22 @@ train  ──▶  export CSV  ──▶  quantize to Q1.15  ──▶  C header 
    validate the fixed-point math against the float model.
 4. **Emit** a C header of `const int16_t` arrays for FPGA / HLS use.
 
+## Results
+
+| dataset | train / test words | final test accuracy |
+| --- | --- | --- |
+| real English word list | 263,739 / 13,881 | **0.66** (released weights: **0.675**) |
+| synthetic successor-rule corpus | 4,000 / 800 | **1.00** |
+
+On the real word list the last character is inherently ambiguous (`hel` → `hell`?
+`help`?), so accuracy saturates in the high 0.6s — that is the ceiling of the task,
+not a training problem. The synthetic corpus has a deterministic answer, so reaching
+1.00 verifies the pipeline end-to-end. The trained model completes real words
+plausibly: `appl` → `e`, `tabl` → `e`.
+
+Full logs, metrics, and the quantized artifacts are under
+[`results/`](results/) — see [RESULTS.md](RESULTS.md).
+
 ## Dataset
 
 The model reads an English **word list** from local `.txt` files (one file for
