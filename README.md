@@ -195,14 +195,22 @@ Trained weights and the real word-list dataset are distributed via
 
 ### FPGA target
 
-The generated `rnn_weights_q15.h` exposes the five parameters as `const int16_t` arrays
-in **Q1.15** format (1 sign bit, 15 fractional bits). It is intended to be `#include`d
-into an FPGA/HLS project (e.g. Xilinx Vitis HLS or a Verilog design) where the recurrence
-is implemented with integer arithmetic. The `rnn_step_fixed` reference in
-`src/quantize.py` mirrors the intended hardware datapath: wide accumulation for
+The target FPGA platform for this project is the Xilinx VC707 Evaluation Kit, based on the Virtex-7 XC7VX485T FPGA (XC7VX485T-2FFG1761C).
+
+The generated rnn_weights_q15.h exposes the five parameters as const int16_t arrays
+in Q1.15 format (1 sign bit, 15 fractional bits). It is intended to be #included
+into an FPGA/HLS project targeting the VC707, using tools such as Xilinx Vivado
+and Vitis HLS.
+
+The recurrence is implemented with integer arithmetic. The rnn_step_fixed reference in
+src/quantize.py mirrors the intended hardware datapath: wide accumulation for
 matrix-vector products (as in DSP accumulators), an arithmetic shift right by
-`FRAC_BITS`, and **saturation** (not wraparound) before the `tanh` nonlinearity,
-with `tanh` shown as a float reference to be replaced by a hardware-friendly
-approximation (e.g. LUT) on device. `src/validate_quantization.py` runs this
-integer datapath against the float model over the full test set — see
-[Results](#results) — so the quantized weights are verified without any board.
+FRAC_BITS, and saturation (not wraparound) before the tanh nonlinearity.
+
+The current tanh implementation is a floating-point software reference and is intended
+to be replaced by a hardware-friendly approximation, such as a lookup table (LUT),
+when implemented on the FPGA.
+
+src/validate_quantization.py runs this integer datapath against the float model over
+the full test set, allowing the quantized weights and fixed-point arithmetic to be
+verified in software before deployment to the VC707.
