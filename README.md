@@ -1,8 +1,6 @@
 # vanilla-rnn-fpga-quantization
 
-![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg) ![PyTorch](https://img.shields.io/badge/PyTorch-2.x-ee4c2c.svg)
-
-밑바닥부터 구현한 **vanilla RNN**을 **Q1.15 고정소수점** int16 가중치로 변환해,
+직접 구현한 **vanilla RNN**을 **Q1.15 고정소수점** int16 가중치로 변환해,
 FPGA 설계에서 바로 `#include`할 수 있는 C 헤더까지 만드는
 **train → export → quantize → C header** 파이프라인입니다. RNN 자체는 간단한
 *마지막 글자 완성* 과제로 학습하며, 파이프라인에 실을 실제 모델을 제공하는 역할입니다.
