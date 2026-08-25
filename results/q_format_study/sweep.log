@@ -1,0 +1,24 @@
+weights: weights/nextword_weights_original.pth
+test words: 13881
+
+tensor shape         absmax   |w|>=1  min format
+------------------------------------------------
+Wx     26x128        5.3176   38.79%       Q4.12
+Wh     128x128       1.6892    0.01%       Q2.14
+b      128           1.0996    1.56%       Q2.14
+Wo     128x26        1.1238    0.09%       Q2.14
+bo     26            0.4249    0.00%       Q1.15
+
+uniform format sweep
+  Q1.15   acc=0.6272 drop= +4.78pp  agree=0.7792  clip(Wx)=38.79%  z_sat=55.394%
+  Q2.14   acc=0.6680 drop= +0.70pp  agree=0.9446  clip(Wx)=11.27%  z_sat=36.578%
+  Q3.13   acc=0.6752 drop= -0.02pp  agree=0.9996  clip(Wx)= 0.45%  z_sat=12.224%
+  Q4.12   acc=0.6750 drop= +0.00pp  agree=1.0000  clip(Wx)= 0.00%  z_sat= 0.962%
+  Q5.11   acc=0.6750 drop= -0.01pp  agree=0.9995  clip(Wx)= 0.00%  z_sat= 0.005%
+  Q6.10   acc=0.6747 drop= +0.03pp  agree=0.9986  clip(Wx)= 0.00%  z_sat= 0.000%
+  Q7.9    acc=0.6750 drop= -0.01pp  agree=0.9979  clip(Wx)= 0.00%  z_sat= 0.000%
+  Q8.8    acc=0.6743 drop= +0.06pp  agree=0.9952  clip(Wx)= 0.00%  z_sat= 0.000%
+
+best uniform format: Q4.12 (acc 0.6750, agreement 1.0000)
+csv written -> results/q_format_study\sweep.csv
+csv written -> results/q_format_study\weight_ranges.csv

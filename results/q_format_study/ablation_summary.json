@@ -1,0 +1,8 @@
+{
+  "baseline_drop_pp": 4.78,
+  "gain_weights_only_pp": 3.15,
+  "gain_acts_only_pp": -4.07,
+  "gain_both_pp": 4.77,
+  "interaction_pp": 5.69,
+  "additive": false
+}

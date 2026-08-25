@@ -30,6 +30,9 @@ WEIGHTS_PATH = WEIGHTS_DIR / WEIGHTS_FILENAME
 # FPGA용 C 헤더 출력 파일
 C_HEADER_PATH = WEIGHTS_FPGA_DIR / "rnn_weights_q15.h"
 
+# 포맷 연구 산출물 (results/q_format_study/)
+QSTUDY_DIR = ROOT_DIR / "results" / "q_format_study"
+
 # -----------------------------------------------------------------------------
 # 모델 하이퍼파라미터 (model hyperparameters)
 # -----------------------------------------------------------------------------
@@ -47,12 +50,20 @@ LEARNING_RATE = 3e-3
 GRAD_CLIP = 1.0
 
 # -----------------------------------------------------------------------------
-# 고정소수점 포맷 (fixed-point format): Q1.15 signed int16
+# 고정소수점 포맷 (fixed-point format)
 # -----------------------------------------------------------------------------
+# 기본 포맷은 Q1.15 signed int16이다. 텐서마다 다른 포맷을 쓰는 혼합 포맷은
+# src/fixedpoint.py의 FixedFormat이 담당하며, 아래 값은 그 균일 포맷 기본값이다.
 FRAC_BITS = 15
 SCALE = 2 ** FRAC_BITS   # 32768
 INT16_MIN = -32768
 INT16_MAX = 32767
+
+# 포맷 스윕에서 훑을 소수부 비트 수 (Q1.15 ~ Q8.8)
+SWEEP_FRAC_BITS = [15, 14, 13, 12, 11, 10, 9, 8]
+
+# 활성값 캘리브레이션에 사용할 샘플 수 (z/y의 범위 측정용)
+CALIB_SAMPLES = 2000
 
 # 내보낼 텐서 이름 순서 (export order)
 PARAM_NAMES = ["Wx", "Wh", "b", "Wo", "bo"]

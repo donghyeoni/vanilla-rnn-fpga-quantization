@@ -1,0 +1,23 @@
+weights: weights/nextword_weights_original.pth
+test words: 13881
+
+ablation (weight clipping x pre-activation saturation)
+  A. baseline      Wx=Q1.15   z=Q1.15   acc=0.6272 drop= +4.78pp agree=0.7792
+  B. weights-only  Wx=Q4.12   z=Q1.15   acc=0.6587 drop= +1.63pp agree=0.8789
+  C. acts-only     Wx=Q1.15   z=Q4.12   acc=0.5865 drop= +8.85pp agree=0.7011
+  D. both          Wx=Q4.12   z=Q4.12   acc=0.6749 drop= +0.01pp agree=0.9999
+  E. mixed         Wx=Q4.12   z=Q4.12   acc=0.6748 drop= +0.01pp agree=0.9999
+
+recovery of the Q1.15 accuracy drop (positive = better, negative = worse)
+  baseline drop                    +4.78 %p
+  B: weights only                  +3.15 %p
+  C: pre-activation range only     -4.07 %p
+  D: both                          +4.77 %p
+  interaction (D - B - C)          +5.69 %p
+
+  The two error sources are NOT additive. Widening the pre-activation
+  range alone (C) lets the still-clipped weights push larger, more
+  distorted values through tanh, so it lands below the baseline.
+  Q4.12 works because it removes both sources at the same time.
+csv written -> results/q_format_study\ablation.csv
+json written -> results/q_format_study\ablation_summary.json
