@@ -1,0 +1,60 @@
+{
+  "dataset": "real word list (test_original.txt)",
+  "weights": "nextword_weights_original.pth",
+  "test_words": 13881,
+  "float_acc": 0.675,
+  "baseline": {
+    "format": "Q1.15 uniform",
+    "fixed_acc": 0.6272,
+    "acc_drop_pp": 4.78,
+    "agreement": 0.7792,
+    "clip_Wx_pct": 38.79,
+    "z_sat_pct": 55.394
+  },
+  "best_uniform": {
+    "format": "Q4.12 uniform",
+    "fixed_acc": 0.675,
+    "acc_drop_pp": 0.0,
+    "agreement": 1.0,
+    "clip_Wx_pct": 0.0,
+    "z_sat_pct": 0.962
+  },
+  "mixed": {
+    "format": {
+      "Wx": "Q4.12",
+      "Wh": "Q2.14",
+      "b": "Q2.14",
+      "Wo": "Q2.14",
+      "bo": "Q1.15",
+      "x": "Q2.14",
+      "h": "Q1.15",
+      "z": "Q4.12",
+      "y": "Q4.12"
+    },
+    "fixed_acc": 0.6748,
+    "acc_drop_pp": 0.01,
+    "agreement": 0.9999,
+    "shifts": {
+      "SHIFT_X": 14,
+      "SHIFT_H": 17,
+      "SHIFT_B": 2,
+      "SHIFT_O": 17,
+      "SHIFT_BO": 3
+    }
+  },
+  "ablation": {
+    "baseline_drop_pp": 4.78,
+    "gain_weights_only_pp": 3.15,
+    "gain_acts_only_pp": -4.07,
+    "gain_both_pp": 4.77,
+    "interaction_pp": 5.69,
+    "additive": false
+  },
+  "weight_ranges": {
+    "Wx": {"absmax": 5.3176, "outside_pm1_pct": 38.79, "required_format": "Q4.12"},
+    "Wh": {"absmax": 1.6892, "outside_pm1_pct": 0.01, "required_format": "Q2.14"},
+    "b": {"absmax": 1.0996, "outside_pm1_pct": 1.56, "required_format": "Q2.14"},
+    "Wo": {"absmax": 1.1238, "outside_pm1_pct": 0.09, "required_format": "Q2.14"},
+    "bo": {"absmax": 0.4249, "outside_pm1_pct": 0.0, "required_format": "Q1.15"}
+  }
+}

@@ -1,15 +1,25 @@
 """
-고정소수점 포멧(16비트 고정소수점: Q1.15)
-가중치를 정수로 양자화
+CSV 가중치 -> int16 고정소수점 -> FPGA용 C 헤더.
 
-파이프라인:
-  1. per-tensor CSV 로드
-  2. float -> Q1.15 signed int16 양자화  (round(x * 2^15), int16 clip)
-  3. 정수 전용 레퍼런스 RNN step 구현 (검증용)
-  4. FPGA/HLS용 C 헤더(const int16_t 배열) 생성
+포맷은 균일(모든 텐서 동일)일 수도, 텐서별로 다를 수도 있다:
+
+    --format 15      모든 텐서 Q1.15 (기존 동작, 기본값)
+    --format 12      모든 텐서 Q4.12
+    --format auto    텐서별 absmax로 최적 포맷 선택
+    --format mixed   auto + 테스트셋으로 z/y 활성값 범위 캘리브레이션
+                     (--calib 로 데이터 경로 지정)
+
+정수 데이터패스 자체(시프트 정렬, 포화, tanh)는 ``fixedpoint.py``에 있다.
+이 모듈은 그 포맷 명세를 받아 하드웨어가 쓸 산출물을 뽑는 역할만 한다.
+
+생성되는 헤더에는 가중치 배열뿐 아니라 **누산기 시프트량**이 함께 들어간다.
+텐서마다 소수부 비트 수가 다르면 곱셈 결과의 정렬 시프트도 달라지므로,
+HLS/RTL 쪽에서 이 상수를 그대로 쓰면 파이썬 모델과 비트 단위로 일치한다.
 
 사용 예:
     python -m src.quantize --csv weights_csv --header weights_for_FPGA/rnn_weights_q15.h
+    python -m src.quantize --csv weights_csv --format auto \
+        --header weights_for_FPGA/rnn_weights_mixed.h
 """
 
 import argparse
@@ -18,6 +28,7 @@ import os
 import numpy as np
 
 from . import config
+from . import fixedpoint as fp
 
 FRAC_BITS = config.FRAC_BITS
 SCALE = config.SCALE   # 2 ** FRAC_BITS
@@ -26,68 +37,53 @@ SCALE = config.SCALE   # 2 ** FRAC_BITS
 # -----------------------------------------------------------------------------
 # 0. 가중치 양자화
 # -----------------------------------------------------------------------------
-def quantize_to_int16(arr):
-    x_scaled = np.round(arr * SCALE)
-    x_clipped = np.clip(x_scaled, config.INT16_MIN, config.INT16_MAX)
-    return x_clipped.astype(np.int16)
+def quantize_to_int16(arr, frac_bits=FRAC_BITS):
+    """실수 배열 -> Q(16-f).f int16. 기본값은 기존과 같은 Q1.15."""
+    return fp.quantize(arr, frac_bits)
 
 
-def load_and_quantize(csv_dir):
-    Wx_f = np.loadtxt(os.path.join(csv_dir, "Wx.csv"), delimiter=",")
-    Wh_f = np.loadtxt(os.path.join(csv_dir, "Wh.csv"), delimiter=",")
-    b_f = np.loadtxt(os.path.join(csv_dir, "b.csv"), delimiter=",")
-    Wo_f = np.loadtxt(os.path.join(csv_dir, "Wo.csv"), delimiter=",")
-    bo_f = np.loadtxt(os.path.join(csv_dir, "bo.csv"), delimiter=",")
+def load_csv_params(csv_dir):
+    """텐서별 CSV를 읽어 float 배열 딕셔너리로 돌려준다."""
+    params = {}
+    for name in config.PARAM_NAMES:
+        arr = np.loadtxt(os.path.join(csv_dir, f"{name}.csv"), delimiter=",")
+        params[name] = np.atleast_1d(arr)
+    return params
 
-    return {
-        "Wx": quantize_to_int16(Wx_f),
-        "Wh": quantize_to_int16(Wh_f),
-        "b": quantize_to_int16(b_f),
-        "Wo": quantize_to_int16(Wo_f),
-        "bo": quantize_to_int16(bo_f),
-    }
+
+def quantize_params(params, fmt):
+    """포맷 명세에 따라 텐서별로 양자화한다."""
+    return {name: fp.quantize(params[name], getattr(fmt, name))
+            for name in config.PARAM_NAMES}
+
+
+def load_and_quantize(csv_dir, fmt=None):
+    """CSV 로드 + 양자화 (fmt 생략 시 기존과 동일한 균일 Q1.15)."""
+    params = load_csv_params(csv_dir)
+    fmt = fmt or fp.FixedFormat.uniform(FRAC_BITS)
+    return quantize_params(params, fmt)
 
 
 # -----------------------------------------------------------------------------
-# 1. 정수 버전 RNN 설계 및 출력 비교
+# 1. 포맷 선택
 # -----------------------------------------------------------------------------
-def fixed_mul(a, b):
-    # Q1.15 × Q1.15 → Q1.15 (중간 곱은 int32로, 끝에 시프트)
-    tmp = (a.astype(np.int32) * b.astype(np.int32))
-    return (tmp >> FRAC_BITS).astype(np.int16)
-
-
-def saturate_int16(a):
-    # 랩어라운드 대신 포화(saturation) — 하드웨어 고정소수점의 표준 동작
-    return np.clip(a, config.INT16_MIN, config.INT16_MAX).astype(np.int16)
-
-
-def fixed_matvec(W, x):
-    # W: (out, in), x: (in,)
-    # 누산은 넓은 정수로 유지한다 (int16 곱 128개의 합은 int32도 넘칠 수 있다 —
-    # 하드웨어에서는 DSP의 넓은 누산기(예: 48비트)에 해당). 시프트 후에도
-    # int16으로 줄이지 않고 넓은 타입으로 반환하고, 필요한 지점에서만 포화시킨다.
-    tmp = W.astype(np.int64) @ x.astype(np.int64)
-    return tmp >> FRAC_BITS
-
-
-def fixed_tanh(x):
-    # 간단하게: float로 잠깐 바꿔서 tanh 후 다시 양자화 (레퍼런스 용)
-    x_f = x.astype(np.float32) / SCALE
-    y_f = np.tanh(x_f)
-    return quantize_to_int16(y_f)
-
-
-def rnn_step_fixed(x_t_q, h_prev_q, q):
-    # x_t_q, h_prev_q : Q1.15 정수 벡터
-    # q : 양자화된 가중치 딕셔너리 {Wx, Wh, b, Wo, bo}
-    # pre-activation은 tanh에 넣기 직전에만 int16으로 포화시킨다
-    # (tanh는 |z|>~3에서 어차피 ±1로 포화하므로 정보 손실이 거의 없다).
-    z = fixed_matvec(q["Wx"].T, x_t_q) + fixed_matvec(q["Wh"].T, h_prev_q) + q["b"].astype(np.int64)
-    h_t = fixed_tanh(saturate_int16(z))
-    # 출력 로짓은 argmax 비교용이므로 포화 없이 넓은 정수 그대로 반환한다.
-    y = fixed_matvec(q["Wo"].T, h_t) + q["bo"].astype(np.int64)
-    return h_t, y
+def resolve_format(spec, params, calib_path=None):
+    """CLI의 --format 문자열을 FixedFormat으로 해석한다."""
+    if spec == "auto":
+        return fp.FixedFormat.from_weights(params)
+    if spec == "mixed":
+        if not calib_path:
+            raise SystemExit("--format mixed requires --calib <word list>")
+        from .experiment import load_eval_set
+        id_seqs, _ = load_eval_set(calib_path)
+        return fp.FixedFormat.calibrate(params, id_seqs[:config.CALIB_SAMPLES])
+    try:
+        frac_bits = int(spec)
+    except ValueError:
+        raise SystemExit(f"unknown format: {spec} (expected an integer, 'auto', or 'mixed')")
+    if not 0 <= frac_bits <= 15:
+        raise SystemExit(f"fractional bits must be in 0..15, got {frac_bits}")
+    return fp.FixedFormat.uniform(frac_bits)
 
 
 # -----------------------------------------------------------------------------
@@ -107,33 +103,64 @@ def dump_c_array(name, arr, file):
         file.write(f"const int16_t {name}[{n}] = {{{row}}};\n\n")
 
 
-def write_header(q, header_path):
+def write_format_defines(fmt, file):
+    """포맷과 누산기 시프트량을 #define으로 내보낸다."""
+    file.write("/*\n")
+    file.write(" * Fixed-point format (Q(16-f).f signed int16, value = raw / 2^f)\n")
+    for line in fmt.describe().splitlines():
+        file.write(f" *{line}\n")
+    file.write(" *\n")
+    file.write(" * z_t = (Wx^T x_t >> SHIFT_X) + (Wh^T h >> SHIFT_H) + (b >> SHIFT_B)\n")
+    file.write(" *       -> saturate to int16 -> tanh -> h_t\n")
+    file.write(" * y_t = (Wo^T h_t >> SHIFT_O) + (bo >> SHIFT_BO)\n")
+    file.write(" */\n\n")
+
+    for name in fp.ALL_FIELDS:
+        file.write(f"#define FRAC_BITS_{name.upper():<3s} {getattr(fmt, name)}\n")
+    file.write("\n")
+    file.write(f"#define SHIFT_X   {fmt.Wx + fmt.x - fmt.z}\n")
+    file.write(f"#define SHIFT_H   {fmt.Wh + fmt.h - fmt.z}\n")
+    file.write(f"#define SHIFT_B   {fmt.b - fmt.z}\n")
+    file.write(f"#define SHIFT_O   {fmt.Wo + fmt.h - fmt.y}\n")
+    file.write(f"#define SHIFT_BO  {fmt.bo - fmt.y}\n\n")
+
+
+def write_header(q, header_path, fmt=None):
+    fmt = fmt or fp.FixedFormat.uniform(FRAC_BITS)
     os.makedirs(os.path.dirname(header_path), exist_ok=True)
     with open(header_path, "w") as f:
         f.write("#include <stdint.h>\n\n")
-        dump_c_array("Wx", q["Wx"], f)
-        dump_c_array("Wh", q["Wh"], f)
-        dump_c_array("b", q["b"], f)
-        dump_c_array("Wo", q["Wo"], f)
-        dump_c_array("bo", q["bo"], f)
-    # include "rnn_weights_q15.h"로 사용
-    # HLS, Verilog Vitis 어디에 쓰는 지 확인
+        write_format_defines(fmt, f)
+        for name in config.PARAM_NAMES:
+            dump_c_array(name, q[name], f)
     print(f"C header written -> {header_path}")
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Quantize CSV weights to Q1.15 int16 and emit a C header.")
+        description="Quantize CSV weights to int16 fixed-point and emit a C header.")
     parser.add_argument("--csv", type=str, default=str(config.WEIGHTS_CSV_DIR),
                         help="directory containing per-tensor CSVs")
     parser.add_argument("--header", type=str, default=str(config.C_HEADER_PATH),
                         help="output C header path")
+    parser.add_argument("--format", type=str, default=str(FRAC_BITS),
+                        help="fractional bits (e.g. 15, 12), 'auto', or 'mixed'")
+    parser.add_argument("--calib", type=str, default=None,
+                        help="calibration word list, required by --format mixed")
     args = parser.parse_args()
 
-    q = load_and_quantize(args.csv)
-    for name, arr in q.items():
-        print(f"{name}: shape={arr.shape}, dtype={arr.dtype}")
-    write_header(q, args.header)
+    params = load_csv_params(args.csv)
+    fmt = resolve_format(args.format, params, args.calib)
+    print(f"format: {fmt.label}")
+    print(fmt.describe())
+    print()
+
+    q = quantize_params(params, fmt)
+    for name in config.PARAM_NAMES:
+        clipped = fp.clip_fraction(params[name], getattr(fmt, name)) * 100
+        print(f"{name}: shape={q[name].shape}, dtype={q[name].dtype}, "
+              f"format={fp.qname(getattr(fmt, name))}, clipped={clipped:.2f}%")
+    write_header(q, args.header, fmt)
 
 
 if __name__ == "__main__":

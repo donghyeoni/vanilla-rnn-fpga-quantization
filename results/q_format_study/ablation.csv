@@ -1,0 +1,6 @@
+config,weight_format_Wx,z_format,x_format,clip_Wx_pct,z_sat_pct,fixed_acc,acc_drop_pp,agreement,note
+A. baseline,Q1.15,Q1.15,Q1.15,38.79,55.394,0.6272,4.78,0.7792,"weight clipping ON, pre-activation saturation ON (original pipeline)"
+B. weights-only,Q4.12,Q1.15,Q1.15,0.0,61.77,0.6587,1.63,0.8789,"weight clipping OFF, pre-activation saturation ON"
+C. acts-only,Q1.15,Q4.12,Q1.15,38.79,0.656,0.5865,8.85,0.7011,"weight clipping ON, pre-activation saturation OFF"
+D. both,Q4.12,Q4.12,Q1.15,0.0,0.963,0.6749,0.01,0.9999,"weight clipping OFF, pre-activation saturation OFF"
+E. mixed,Q4.12,Q4.12,Q2.14,0.0,0.963,0.6748,0.01,0.9999,D plus an exactly representable one-hot input (Q2.14)
