@@ -263,12 +263,118 @@ python -m src.quantize --csv weights_csv --format auto \
 
 - 단일 모델·단일 시드로 측정했습니다. 포맷 선택이 학습 결과에 얼마나 민감한지는
   다루지 않았습니다.
-- `tanh`는 여전히 부동소수점 참조 구현입니다. LUT 근사로 바꾸면 z 포맷의 최적점이
-  달라질 수 있습니다.
 - 생성된 헤더의 값과 시프트 상수는 파이썬 모델과 대조 검증했지만, 실제 VC707
   합성·배치는 수행하지 않았습니다. 자원 사용량과 지연시간 수치는 아직 없습니다.
 - 학습 중 포맷 범위를 강제하는 QAT는 다루지 않았습니다. `Wx`가 애초에 범위 안에
   들어오게 만들면 더 좁은 포맷도 가능할 수 있습니다.
+
+## tanh 룩업 테이블
+
+FPGA에는 `tanh`를 계산할 수단이 없습니다. 정수 연산(`+`, `*`, `>>`)만으로는
+초월함수를 만들 수 없기 때문입니다. 그런데 양자화를 거치고 나면 `tanh`의 입력
+`z`가 Q4.12 int16, 즉 **유한한 65,536가지 값**뿐이므로 답을 미리 전부 계산해
+표에 넣어둘 수 있습니다. 실행 시에는 표를 한 번 읽으면 끝이고 곱셈기도
+덧셈기도 쓰지 않습니다.
+
+이 절의 산출물은 [`results/tanh_lut_study/`](results/tanh_lut_study/)에 있습니다.
+
+### 표 줄이기
+
+전체 표는 65,536 × 2바이트 = 128 KB입니다. 세 가지로 줄입니다.
+
+1. **대칭** — `tanh`는 기함수이므로 `z ≥ 0`만 저장하고 부호는 따로 붙입니다.
+   오차 없이 크기가 절반이 됩니다.
+2. **자르기** — `|z| ≥ sat_bound`는 표의 마지막 값으로 고정합니다.
+   `tanh(4) = 0.99933`이라 4 근처부터는 사실상 상수입니다.
+3. **간격 + 선형보간** — `step`칸마다 하나씩만 저장하고 사이는 보간합니다.
+   `step`이 2의 거듭제곱이면 나눗셈이 시프트가 되어 하드웨어에서 쌉니다.
+
+보간 산술은 전부 정수로 수행하고 나눗셈 대신 산술 우시프트를 쓰므로, 파이썬
+모델의 출력은 FPGA가 내놓을 값과 비트 단위로 같습니다.
+
+### 표 크기 대 예측 정확도
+
+중요한 것은 표 자체의 오차가 아니라 **예측이 실제로 몇 개 바뀌는가**입니다.
+`tanh` 오차는 128개 은닉 유닛을 거쳐 매 타임스텝 순환에 누적되기 때문입니다
+([`lut_sweep.csv`](results/tanh_lut_study/lut_sweep.csv),
+[`lut_sweep.log`](results/tanh_lut_study/lut_sweep.log)):
+
+| 표 설정 | 엔트리 | 크기 | BRAM | 표 오차 | fixed acc | 일치율 |
+| --- | --- | --- | --- | --- | --- | --- |
+| float tanh (기준) | — | — | — | — | 0.6748 | 0.9999 |
+| 전 구간, 보간 없음 | 32,769 | 64 KB | 1.38% | 1 LSB | 0.6749 | 0.9999 |
+| `sat=4`, 보간 없음 | 16,385 | 32 KB | 0.69% | 22 LSB | 0.6750 | 0.9999 |
+| `sat=6`, `step=256` | 98 | 0.19 KB | 0.004% | 13 LSB | 0.6749 | 0.9999 |
+| **`sat=4`, `step=256`** | **66** | **0.13 KB** | **0.003%** | **22 LSB** | **0.6750** | **0.9999** |
+| `sat=4`, `step=1024` | 18 | 0.04 KB | 0.001% | 196 LSB | 0.6752 | 0.9981 |
+| `sat=4`, `step=4096` | 6 | 0.01 KB | 0.000% | 2679 LSB | 0.6738 | 0.9641 |
+| `sat=1`, `step=64` | 66 | 0.13 KB | 0.003% | 7812 LSB | 0.6586 | 0.8788 |
+
+**66 엔트리(0.13 KB)로 float `tanh`와 같은 일치율을 유지합니다** — 전체 표 대비
+500배 작습니다. XC7VX485T의 BRAM 총량 대비 0.003%라 사실상 공짜입니다.
+
+곡선에서 읽히는 것은 세 가지입니다.
+
+- **표 크기를 결정하는 것은 자르는 지점이지 샘플 간격이 아닙니다.** `sat=4`에서
+  `step`을 1에서 256으로 256배 성기게 해도 오차가 22 LSB로 동일합니다. 오차가
+  전부 자르기에서 오기 때문입니다.
+- **보간은 사실상 공짜입니다.** 정확도를 지키면서 표를 1/256로 줄여 줍니다.
+- **마지막 행이 잘라내기의 위험을 보여줍니다.** 같은 66 엔트리라도 `|z| ≥ 1`에서
+  자르면 일치율이 0.8788로 무너집니다. 이는 위 [오차 원인 분리](#2-오차-원인-분리)의
+  B 구성(0.8789)과 사실상 같은 값입니다 — `tanh` 출력이 `tanh(1) = 0.7616`에
+  묶이는 동일한 고장이며, 두 실험이 독립적으로 같은 숫자에 도달했습니다.
+
+### 산출물
+
+`--tanh-lut`을 주면 헤더에 가중치와 함께 표가 들어갑니다. **이 헤더 하나로
+순환 전체를 부동소수점 없이 구현할 수 있습니다**
+([`rnn_weights_mixed_lut.h`](results/tanh_lut_study/rnn_weights_mixed_lut.h)):
+
+```c
+#define TANH_LUT_ENTRIES   66
+#define TANH_LUT_SAT_LIMIT 16384      /* |z| >= 4.0 은 마지막 값으로 고정 */
+#define TANH_LUT_STEP_LOG2 8          /* 256 칸마다 저장, 나눗셈 대신 시프트 */
+
+const int16_t TANH_LUT[66] = { 0, 2045, 4075, ... };
+
+int16_t tanh_lookup(int32_t z) {
+    int32_t s   = (z < 0) ? -1 : 1;
+    int32_t mag = abs(z);
+    if (mag > TANH_LUT_SAT_LIMIT) mag = TANH_LUT_SAT_LIMIT;
+    int32_t i   = mag >> TANH_LUT_STEP_LOG2;
+    int32_t f   = mag & (TANH_LUT_STEP - 1);
+    int32_t lo  = TANH_LUT[i], hi = TANH_LUT[i + 1];
+    return s * (lo + (((hi - lo) * f) >> TANH_LUT_STEP_LOG2));
+}
+```
+
+표의 마지막 값은 한 칸 복제되어 있습니다. `|z| = SAT_LIMIT`일 때 `i`가 마지막
+인덱스가 되어 `TANH_LUT[i + 1]`이 범위를 벗어나므로, 2바이트를 더 써서 C 쪽에서
+경계 검사 없이 읽을 수 있게 한 것입니다.
+
+### 재현
+
+```bash
+# 표 하나의 크기와 오차 확인
+python -m src.tanh_lut --z-frac-bits 12 --sat-bound 4 --step 256
+
+# 표 크기 대 예측 정확도 스윕
+python -m src.lut_sweep --weights weights/nextword_weights_original.pth \
+    --test data/test_original.txt --out results/tanh_lut_study
+
+# 가중치 + tanh 표가 함께 담긴 C 헤더 생성
+python -m src.quantize --csv weights_csv --format auto --tanh-lut \
+    --header weights_for_FPGA/rnn_weights_mixed_lut.h
+```
+
+### 한계
+
+- 표는 여전히 파이썬이 `np.tanh`로 만듭니다. FPGA는 그 결과를 읽을 뿐이며,
+  이는 의도된 설계입니다(하드웨어에서 근사할 필요가 없어집니다).
+- 일치율은 float 모델 대비 예측 일치 비율입니다. C/RTL로 옮긴 뒤 같은 값이
+  나오는지는 co-simulation으로 다시 확인해야 합니다.
+- 자르는 지점과 간격은 이 모델의 `z` 분포에 맞춘 것입니다. 다른 모델에서는
+  `lut_sweep.py`를 다시 돌려야 합니다.
 
 ## 데이터셋
 
@@ -306,12 +412,15 @@ vanilla-rnn-fpga-quantization/
 │   ├── validate_quantization.py  # float vs 정수 데이터패스, 예측 일치율
 │   ├── experiment.py     # 포맷 실험 공통 로딩/측정/표 출력 유틸
 │   ├── format_sweep.py   # 균일 포맷 스윕 (범위 vs 분해능 트레이드오프 곡선)
-│   └── ablation.py       # 가중치 클리핑 x 활성값 포화 2x2 오차 원인 분리
+│   ├── ablation.py       # 가중치 클리핑 x 활성값 포화 2x2 오차 원인 분리
+│   ├── tanh_lut.py       # 정수 전용 tanh 룩업 테이블 (대칭/자르기/보간) + C 배열 출력
+│   └── lut_sweep.py      # 표 크기 대 예측 정확도 스윕
 ├── run_all.py            # 학습 가능한 코퍼스 합성 + train->export->quantize->validate->predict 일괄 실행
 ├── results/
 │   ├── synthetic/        # 커밋된 산출물(합성 코퍼스): 로그, metrics.json, 샘플 C 헤더 + CSV
 │   ├── real_data/        # 실제 단어 리스트 데이터셋의 커밋된 산출물 (Releases 참고)
-│   └── q_format_study/   # Q포맷 연구: 스윕/ablation CSV, 혼합 포맷 헤더, metrics.json
+│   ├── q_format_study/   # Q포맷 연구: 스윕/ablation CSV, 혼합 포맷 헤더, metrics.json
+│   └── tanh_lut_study/   # tanh LUT 연구: 표 크기 스윕 CSV, LUT 포함 헤더, metrics.json
 ├── requirements.txt
 ├── .gitignore
 └── README.md
@@ -359,6 +468,10 @@ python -m src.validate_quantization --weights weights/nextword_weights.pth --tes
 # 7. 포맷 연구 (아래 'Q포맷 연구' 절 참고)
 python -m src.format_sweep --weights weights/nextword_weights.pth --test data/test.txt
 python -m src.ablation --weights weights/nextword_weights.pth --test data/test.txt
+
+# 8. tanh 룩업 테이블 (아래 'tanh 룩업 테이블' 절 참고)
+python -m src.lut_sweep --weights weights/nextword_weights.pth --test data/test.txt
+python -m src.quantize --csv weights_csv --format auto --tanh-lut     --header weights_for_FPGA/rnn_weights_mixed_lut.h
 ```
 
 ## 참고
@@ -412,8 +525,9 @@ Q포맷은 int16 비트의 해석일 뿐이라 포맷을 바꿔도 DSP·BRAM 사
 누산기와 같이), 포맷에 맞춘 산술 우측 시프트, 그리고 tanh 비선형 직전의
 포화(랩어라운드가 아님).
 
-현재 tanh는 부동소수점 소프트웨어 참조 구현이며, FPGA에 올릴 때는 룩업 테이블(LUT)
-같은 하드웨어 친화적 근사로 대체하는 것을 전제로 합니다.
+tanh는 `--tanh-lut`으로 생성한 정수 룩업 테이블로 대체할 수 있습니다. 66 엔트리
+(0.13 KB)면 부동소수점 tanh와 같은 예측 일치율이 유지되므로, 그 헤더 하나로
+순환 전체를 부동소수점 없이 구현할 수 있습니다 — 아래 [tanh 룩업 테이블](#tanh-룩업-테이블) 절 참고.
 
 `src/validate_quantization.py`가 이 정수 데이터패스를 float 모델과 전체 테스트셋에
 대해 대조 실행하므로, VC707에 배포하기 전에 양자화된 가중치와 고정소수점 연산을

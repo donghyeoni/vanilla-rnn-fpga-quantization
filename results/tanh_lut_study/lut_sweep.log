@@ -1,0 +1,28 @@
+weights: weights/nextword_weights_original.pth
+test words: 13881
+format: auto (z=Q4.12, h=Q1.15)
+
+tanh LUT sweep
+  float tanh (reference)                                  acc=0.6748 agree=0.9999
+  z=Q4.12 full exact             32,769   64.00 KB     1 LSB  acc=0.6749 agree=0.9999
+  z=Q4.12 sat=6 exact            24,577   48.00 KB     1 LSB  acc=0.6749 agree=0.9999
+  z=Q4.12 sat=5 exact            20,481   40.00 KB     3 LSB  acc=0.6749 agree=0.9999
+  z=Q4.12 sat=4 exact            16,385   32.00 KB    22 LSB  acc=0.6750 agree=0.9999
+  z=Q4.12 sat=3 exact            12,289   24.00 KB   162 LSB  acc=0.6755 agree=0.9977
+  z=Q4.12 sat=2 exact             8,193   16.00 KB  1179 LSB  acc=0.6738 agree=0.9802
+  z=Q4.12 sat=6 step=16           1,538    3.00 KB     1 LSB  acc=0.6749 agree=0.9999
+  z=Q4.12 sat=6 step=64             386    0.75 KB     2 LSB  acc=0.6749 agree=0.9999
+  z=Q4.12 sat=6 step=256             98    0.19 KB    13 LSB  acc=0.6749 agree=0.9999
+  z=Q4.12 sat=6 step=1024            26    0.05 KB   196 LSB  acc=0.6752 agree=0.9979
+  z=Q4.12 sat=4 step=16           1,026    2.00 KB    22 LSB  acc=0.6750 agree=0.9999
+  z=Q4.12 sat=4 step=64             258    0.50 KB    22 LSB  acc=0.6750 agree=0.9999
+  z=Q4.12 sat=4 step=256             66    0.13 KB    22 LSB  acc=0.6750 agree=0.9999
+  z=Q4.12 sat=4 step=1024            18    0.04 KB   196 LSB  acc=0.6752 agree=0.9981
+  z=Q4.12 sat=4 step=4096             6    0.01 KB  2679 LSB  acc=0.6738 agree=0.9641
+  z=Q4.12 sat=3 step=256             50    0.10 KB   162 LSB  acc=0.6755 agree=0.9977
+  z=Q4.12 sat=2 step=256             34    0.07 KB  1179 LSB  acc=0.6739 agree=0.9806
+  z=Q4.12 sat=1 step=64              66    0.13 KB  7812 LSB  acc=0.6586 agree=0.8788
+
+smallest table that keeps the reference agreement: z=Q4.12 sat=4 step=256
+  66 entries, 0.13 KB (0.003% of BRAM), agreement 0.9999
+csv written -> results/tanh_lut_study\lut_sweep.csv
