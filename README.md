@@ -518,16 +518,27 @@ FixedRNN (파이썬)  ==  C++ 커널  ==  생성된 Verilog
 **남은 작업.** 합성·배치는 아직 수행하지 않았으므로 자원 사용량과 지연시간 수치는
 없음. 순서는 다음과 같음.
 
-| | 단계 | 성격 | 상태 |
-| --- | --- | --- | --- |
-| ① | C simulation | C++ ↔ `FixedRNN` 검증 | **완료** |
-| ② | `csynth` | C++ → Verilog 변환 + 추정 리포트 | |
-| ③ | `cosim` | Verilog ↔ C++ 검증 | |
-| ④ | `UNROLL_H` 스윕 | 면적-지연시간 트레이드오프 표 | |
-| ⑤ | Vivado 구현(P&R) | post-route 사용률·타이밍 | |
+| | 단계 | 성격 | 툴 | 상태 |
+| --- | --- | --- | --- | --- |
+| ① | C simulation (`csim`) | C++ ↔ `FixedRNN` 검증 | g++ | **완료** |
+| ② | `csynth` | C++ → Verilog **변환** + 추정 리포트 | Vitis HLS | |
+| ③ | `cosim` | Verilog ↔ C++ **검증** | Vitis HLS | |
+| ④ | `UNROLL_H` 스윕 | 면적-지연시간 트레이드오프 표 | Vitis HLS | |
+| ⑤ | `export_design` | 커널을 IP로 패키징 | Vitis HLS | |
+| ⑥ | 블록 디자인 | IP + AXI + 클럭 + 마스터 연결 | Vivado | |
+| ⑦ | 논리 합성 | Verilog → 게이트 네트리스트 | Vivado | |
+| ⑧ | 구현 (P&R) | 배치·배선 → **post-route** 사용률·타이밍 | Vivado | |
+| ⑨ | 비트스트림 + 보드 검증 | 실동작 확인 (선택) | Vivado + VC707 | |
 
-②~⑤는 Vitis HLS / Vivado 설치가 필요함. ②의 LUT/DSP/BRAM은 **추정치**이고 구현을
-거치면 특히 LUT이 상당히 달라지므로, 최종 수치로 쓸 것은 ⑤의 post-route 리포트임.
+②의 `csynth`와 ⑦의 논리 합성은 다른 단계임 — ②는 C++을 Verilog로, ⑦은 그 Verilog를
+게이트로 옮김. ②~⑨는 Vitis HLS / Vivado 설치가 필요함.
+
+②의 LUT/DSP/BRAM은 **추정치**이고 구현을 거치면 특히 LUT이 상당히 달라지므로, 최종
+수치로 쓸 것은 ⑧의 post-route 리포트임. 리포트 가치의 대부분은 ④와 ⑧에 있고 ⑨는
+보너스임.
+
+⑨에서 소프트웨어를 짜지 않으려면 **JTAG-to-AXI Master IP**를 붙여 Vivado Hardware
+Manager에서 Tcl로 직접 레지스터를 읽고 쓰면 됨 (커널 인터페이스가 AXI4-Lite임).
 
 ※XC7VX485T는 무료 Vivado WebPACK 대상이 아님. VC707 키트에 딸린 device-locked
 라이선스가 필요함. 라이선스가 없으면 파트를 WebPACK 대상 7-series(예:

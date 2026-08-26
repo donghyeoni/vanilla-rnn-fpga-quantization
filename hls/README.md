@@ -135,9 +135,9 @@ cosim이 잡아내는 대표적인 오류다.
 
 ## 남은 작업
 
-1. `csynth` + `cosim` 실행 → 예측 일치 확인
-2. `sweep`으로 `UNROLL_H` 1~128 면적-지연시간 표 작성
-3. Vivado 구현(place & route)까지 진행 → **post-route** 사용률·타이밍 확보
+전체 9단계 로드맵과 각 단계의 툴·상태는 루트 [`README.md`의 「HLS 커널」 절](../README.md#hls-커널)에
+있다. 여기서는 중복하지 않는다. 현재 완료된 것은 ① C simulation이고, 다음은
+② `csynth`(C++ → Verilog)다.
 
-3번이 중요하다. `csynth`의 LUT/DSP/BRAM은 **추정치**이고 구현을 거치면 특히 LUT이
+`csynth`의 LUT/DSP/BRAM은 **추정치**이고 구현(place & route)을 거치면 특히 LUT이
 상당히 달라진다. 최종 수치로 쓸 것은 post-route 리포트다.
