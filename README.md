@@ -145,7 +145,6 @@ DSP·BRAM 사용량은 변하지 않습니다. 바뀌는 것은 누산기의 시
 
 ### 1. 균일 포맷 스윕
 
-모든 텐서와 내부 신호에 같은 포맷을 적용해 Q1.15부터 Q8.8까지 훑었습니다
 ([`sweep.csv`](results/q_format_study/sweep.csv),
 [`sweep.log`](results/q_format_study/sweep.log)).
 
