@@ -125,12 +125,19 @@ def write_format_defines(fmt, file):
     file.write(f"#define SHIFT_BO  {fmt.bo - fmt.y}\n\n")
 
 
-def write_header(q, header_path, fmt=None):
+def write_header(q, header_path, fmt=None, tanh_lut=None):
+    """가중치 배열과 (선택적으로) tanh 룩업 테이블을 하나의 헤더로 내보낸다.
+
+    ``tanh_lut``까지 넣으면 이 헤더 하나에 **가중치 + 활성화 함수**가 모두
+    담겨, HLS/RTL 쪽에서 부동소수점 없이 순환을 구현할 수 있다.
+    """
     fmt = fmt or fp.FixedFormat.uniform(FRAC_BITS)
     os.makedirs(os.path.dirname(header_path), exist_ok=True)
     with open(header_path, "w") as f:
         f.write("#include <stdint.h>\n\n")
         write_format_defines(fmt, f)
+        if tanh_lut is not None:
+            tanh_lut.write_c_array(f)
         for name in config.PARAM_NAMES:
             dump_c_array(name, q[name], f)
     print(f"C header written -> {header_path}")
@@ -147,6 +154,13 @@ def main():
                         help="fractional bits (e.g. 15, 12), 'auto', or 'mixed'")
     parser.add_argument("--calib", type=str, default=None,
                         help="calibration word list, required by --format mixed")
+    parser.add_argument("--tanh-lut", action="store_true",
+                        help="also emit a tanh lookup table (removes the last "
+                             "floating-point step from the datapath)")
+    parser.add_argument("--tanh-sat-bound", type=float, default=4.0,
+                        help="clamp |z| beyond this value in the tanh table")
+    parser.add_argument("--tanh-step", type=int, default=256,
+                        help="store every Nth tanh point and interpolate")
     args = parser.parse_args()
 
     params = load_csv_params(args.csv)
@@ -160,7 +174,13 @@ def main():
         clipped = fp.clip_fraction(params[name], getattr(fmt, name)) * 100
         print(f"{name}: shape={q[name].shape}, dtype={q[name].dtype}, "
               f"format={fp.qname(getattr(fmt, name))}, clipped={clipped:.2f}%")
-    write_header(q, args.header, fmt)
+
+    lut = None
+    if args.tanh_lut:
+        from .tanh_lut import TanhLUT
+        lut = TanhLUT(fmt.z, fmt.h, sat_bound=args.tanh_sat_bound, step=args.tanh_step)
+        print(f"tanh LUT: {lut.describe()}")
+    write_header(q, args.header, fmt, tanh_lut=lut)
 
 
 if __name__ == "__main__":

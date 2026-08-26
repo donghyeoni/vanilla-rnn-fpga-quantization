@@ -1,0 +1,49 @@
+{
+  "dataset": "real word list (test_original.txt)",
+  "weights": "nextword_weights_original.pth",
+  "test_words": 13881,
+  "format": "auto (Wx=Q4.12, Wh/b/Wo=Q2.14, bo/h=Q1.15, x=Q2.14, z/y=Q4.12)",
+  "float_acc": 0.675,
+  "reference_float_tanh": {
+    "fixed_acc": 0.6748,
+    "agreement": 0.9999,
+    "note": "integer datapath with a floating-point tanh; not synthesizable"
+  },
+  "full_table": {
+    "entries": 32769,
+    "kb": 64.0,
+    "max_error_lsb": 1,
+    "fixed_acc": 0.6749,
+    "agreement": 0.9999,
+    "note": "odd symmetry only; 1 LSB comes from two's-complement asymmetry (-32768 has no positive counterpart)"
+  },
+  "selected": {
+    "sat_bound": 4,
+    "step": 256,
+    "entries": 66,
+    "kb": 0.13,
+    "bram_pct": 0.003,
+    "max_error_lsb": 22,
+    "fixed_acc": 0.675,
+    "agreement": 0.9999,
+    "note": "smallest table that matches the float-tanh reference agreement; 500x smaller than the full table"
+  },
+  "breakdown_point": {
+    "entries": 6,
+    "config": "sat=4 step=4096",
+    "agreement": 0.9641,
+    "note": "accuracy holds down to ~18 entries, then collapses"
+  },
+  "cutoff_dominates": {
+    "sat1_step64": {
+      "entries": 66,
+      "agreement": 0.8788,
+      "note": "same entry count as the selected table but cut at |z|>=1; reproduces the ablation's config B (0.8789), i.e. the Q1.15 pre-activation saturation"
+    }
+  },
+  "findings": [
+    "table size is governed by where |z| is cut, not by how finely it is sampled",
+    "interpolation is nearly free: 256-step interpolation keeps the reference agreement",
+    "cutting at |z|>=1 recreates the Q1.15 saturation failure measured in the ablation"
+  ]
+}

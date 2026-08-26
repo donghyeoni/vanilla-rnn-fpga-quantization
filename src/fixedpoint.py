@@ -212,8 +212,9 @@ class FixedRNN:
         y_t = (Wo^T h_t >> s_o) + (bo >> s_bo)
     """
 
-    def __init__(self, params, fmt):
+    def __init__(self, params, fmt, tanh_lut=None):
         self.fmt = fmt
+        self.tanh_lut = tanh_lut
         self.q = {n: quantize(params[n], getattr(fmt, n)) for n in TENSOR_FIELDS}
 
         # 누산 결과를 목표 포맷으로 맞추는 시프트량 (곱의 소수부 = 두 피연산자의 합)
@@ -237,9 +238,19 @@ class FixedRNN:
                 + fixed_matvec(self.WhT, h_q, self.shift_h)
                 + arshift(self.q["b"], self.shift_b))
 
+    def activation(self, z):
+        """tanh. ``tanh_lut``이 주어지면 정수 표 조회로, 아니면 float 참조로 계산한다.
+
+        표를 붙이면 이 경로에서 부동소수점이 완전히 사라져 모델 전체가 정수
+        연산만으로 완결된다 (= HLS/RTL로 옮길 수 있는 상태).
+        """
+        if self.tanh_lut is None:
+            return quantize(np.tanh(dequantize(z, self.fmt.z)), self.fmt.h)
+        return self.tanh_lut.lookup(z)
+
     def step(self, x_q, h_q):
         z = saturate16(self.accumulate(x_q, h_q))             # tanh 직전 포화
-        h = quantize(np.tanh(dequantize(z, self.fmt.z)), self.fmt.h)
+        h = self.activation(z)
         y = (fixed_matvec(self.WoT, h, self.shift_o)
              + arshift(self.q["bo"], self.shift_bo))
         return h, y
@@ -260,8 +271,7 @@ class FixedRNN:
                 acc = self.accumulate(self.onehot_q[i], h)
                 hit += int(((acc <= INT16_MIN) | (acc >= INT16_MAX)).sum())
                 total += acc.size
-                z = saturate16(acc)
-                h = quantize(np.tanh(dequantize(z, self.fmt.z)), self.fmt.h)
+                h = self.activation(saturate16(acc))
         return hit / total if total else 0.0
 
 
@@ -279,12 +289,13 @@ def predict_float(params, ids):
     return int(np.argmax(y))
 
 
-def evaluate(params, fmt, id_seqs, targets, float_preds=None):
+def evaluate(params, fmt, id_seqs, targets, float_preds=None, tanh_lut=None):
     """float / 고정소수점 정확도와 예측 일치율을 한 번에 계산한다.
 
     ``float_preds``를 넘기면 float 추론을 다시 돌리지 않는다 (스윕에서 재사용).
+    ``tanh_lut``을 넘기면 정수 경로가 tanh까지 표 조회로 처리한다.
     """
-    net = FixedRNN(params, fmt)
+    net = FixedRNN(params, fmt, tanh_lut=tanh_lut)
     n = len(id_seqs)
     agree = float_ok = fixed_ok = 0
     for idx, (ids, target) in enumerate(zip(id_seqs, targets)):

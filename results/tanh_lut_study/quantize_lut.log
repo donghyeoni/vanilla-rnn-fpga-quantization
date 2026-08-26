@@ -1,0 +1,18 @@
+format: auto
+  Wx  Q4.12    range [ -8.00000,  +7.99976]  lsb 2.441e-04
+  Wh  Q2.14    range [ -2.00000,  +1.99994]  lsb 6.104e-05
+   b  Q2.14    range [ -2.00000,  +1.99994]  lsb 6.104e-05
+  Wo  Q2.14    range [ -2.00000,  +1.99994]  lsb 6.104e-05
+  bo  Q1.15    range [ -1.00000,  +0.99997]  lsb 3.052e-05
+   x  Q2.14    range [ -2.00000,  +1.99994]  lsb 6.104e-05
+   h  Q1.15    range [ -1.00000,  +0.99997]  lsb 3.052e-05
+   z  Q4.12    range [ -8.00000,  +7.99976]  lsb 2.441e-04
+   y  Q4.12    range [ -8.00000,  +7.99976]  lsb 2.441e-04
+
+Wx: shape=(26, 128), dtype=int16, format=Q4.12, clipped=0.00%
+Wh: shape=(128, 128), dtype=int16, format=Q2.14, clipped=0.00%
+b: shape=(128,), dtype=int16, format=Q2.14, clipped=0.00%
+Wo: shape=(128, 26), dtype=int16, format=Q2.14, clipped=0.00%
+bo: shape=(26,), dtype=int16, format=Q1.15, clipped=0.00%
+tanh LUT: z=Q4.12 sat=4 step=256: 66 entries, 0.1 KB (0.00% of BRAM), max error 22 LSB
+C header written -> weights_for_FPGA/rnn_weights_mixed_lut.h
