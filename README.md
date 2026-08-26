@@ -1,19 +1,20 @@
 # vanilla-rnn-fpga-quantization
 
 **vanilla RNN**을 **Q1.15 고정소수점** int16 가중치로 변환해,
-FPGA 설계에서 바로 `#include`할 수 있는 C 헤더 제작(**train → export → quantize → C header**). 
+FPGA 설계에서 바로 `#include`할 수 있는 C 헤더 제작
+(**train → export → quantize → C header**). 
 
-RNN 자체는 *마지막 글자 예측* 모델로 raw `nn.Parameter` 텐서로 직접 구현 -> 순환식과 가중치가 완전히 투명 & 하드웨어로 옮기기 쉽다.
+RNN 자체는 *마지막 글자 예측* 모델로 raw `nn.Parameter` 텐서로 직접 구현 -> 순환식과 가중치가 완전히 투명 & 하드웨어로 옮기기 쉬움.
 
 ## 개요
 
-예측 과제는 의도적으로 단순하게 골랐습니다. 이 프로젝트의 초점은 분류기가 아니라
-**하드웨어로 가는 고정소수점 변환 경로**(텐서별 CSV → Q1.15 int16 → C 헤더)입니다.
+이 프로젝트의 초점은 분류기가 아니라
+**하드웨어로 가는 고정소수점 변환 경로**(텐서별 CSV → Q1.15 int16 → C 헤더)임.
 
-**과제 — 마지막 글자 완성.** 마지막 글자를 제거한 소문자 단어(예: `"hell"`)를 입력하면
-모델이 빠진 마지막 글자(`"o"`)를 예측합니다. 어휘는 소문자 `a`–`z` 26자입니다.
+**마지막 글자 완성.** 마지막 글자를 제거한 소문자 단어(예: `"hell"`)를 입력하면
+모델이 빠진 마지막 글자(`"o"`)를 예측. 어휘는 소문자 `a`–`z` 26자임.
 **sequence-to-one** 분류 문제로, 접두사 전체를 순회한 뒤 **마지막 타임스텝**의
-logits로 예측합니다.
+logits로 예측함.
 
 **순환식.**
 
@@ -38,28 +39,29 @@ train  ──▶  export CSV  ──▶  quantize to Q1.15  ──▶  C header 
 (.pth)      (per-tensor)     (int16)                (const int16_t arrays)
 ```
 
-1. **Train** — RNN을 학습하고 PyTorch `state_dict`(`.pth`)로 저장합니다.
-2. **Export** — 5개 파라미터(`Wx`, `Wh`, `b`, `Wo`, `bo`)를 텐서별 `.csv`로 내보냅니다.
+1. **Train** — RNN을 학습하고 PyTorch `state_dict`(`.pth`)로 저장.
+2. **Export** — 5개 파라미터(`Wx`, `Wh`, `b`, `Wo`, `bo`)를 텐서별 `.csv`로 정리.
 3. **Quantize** — 각 float 값을 `round(x * 2^f)` 후 int16 범위 `[-32768, 32767]`로
-   클리핑해 **Q(16-f).f signed int16**으로 양자화합니다(기본 `f = 15`, 즉 Q1.15).
+   클리핑해 **Q(16-f).f signed int16**으로 양자화(기본 `f = 15`, 즉 Q1.15).
    고정소수점 연산을 float 모델과 대조 검증할 수 있도록 정수 전용 참조 데이터패스
-   (`src/fixedpoint.py`의 `FixedRNN`)를 제공합니다.
-4. **Emit** — FPGA/HLS에서 쓸 `const int16_t` 배열의 C 헤더를 생성합니다.
+   (`src/fixedpoint.py`의 `FixedRNN`)를 제공
+4. **Emit** — FPGA/HLS에서 쓸 `const int16_t` 배열의 C 헤더를 생성.
 
-포맷은 텐서마다 다르게 줄 수 있습니다. `f`가 텐서·신호별로 달라지면 누산기 정렬
+※포맷은 텐서마다 다르게 줄 수 있습니다. `f`가 텐서·신호별로 달라지면 누산기 정렬
 시프트도 함께 달라지며, 그 계산은 `FixedRNN`이 담당하고 생성된 헤더에
 `SHIFT_*` 상수로 함께 실립니다. 어떤 포맷을 고를지에 대한 실측은
 아래 [Q포맷 연구](#q포맷-연구) 절에 있습니다.
 
 ## 결과
 
-여기서 정확도는 **파이프라인 검증 지표**입니다 — 산출물은 분류기가 아니라 양자화된
-하드웨어 가중치입니다. 두 결과 세트가 커밋되어 있습니다.
+정확도 -> 파이프라인 검증 지표 
+산출물은 ->양자화된 하드웨어 가중치
+두 결과 세트가 커밋되어 있음.
 
 - [`results/synthetic/`](results/synthetic/) — **합성 코퍼스.** 외부 데이터 없이
-  명령 한 번으로 재현됩니다: `python run_all.py`
+  명령 한 번으로 재현: `python run_all.py`
 - [`results/real_data/`](results/real_data/) — **실제 영어 단어 리스트.** 데이터셋과
-  학습된 가중치는 [Releases](https://github.com/donghyeoni/vanilla-rnn-fpga-quantization/releases)에 있습니다.
+  학습된 가중치는 [Releases](https://github.com/donghyeoni/vanilla-rnn-fpga-quantization/releases)에 있음.
 
 | | 합성 코퍼스 | 실제 단어 리스트 |
 | --- | --- | --- |
@@ -71,28 +73,28 @@ train  ──▶  export CSV  ──▶  quantize to Q1.15  ──▶  C header 
 | 용도 | 파이프라인 검증 | 실제 모델 |
 
 일치율은 **정수 전용 데이터패스**(FPGA가 구현하는 것과 동일한 연산을 소프트웨어로
-시뮬레이션 — 보드 불필요)가 float 모델과 같은 글자를 예측한 테스트 단어의 비율입니다.
+시뮬레이션 — 보드 불필요)가 float 모델과 같은 글자를 예측한 테스트 단어의 비율임.
 
 ### 합성 코퍼스
 
 합성 단어는 `prefix + successor(prefix[-1])`(예: `ab` → 마지막 글자 `c`) 규칙으로
-만들어, 마지막 글자가 접두사의 결정적 함수가 되고 vanilla RNN이 학습할 수 있습니다.
+만들어, 마지막 글자가 접두사의 결정적 함수가 되고 vanilla RNN이 학습할 수 있음.
 4,000 train / 800 test 단어, 15 epochs, hidden 128. RNN은 test accuracy **1.00**에
-도달해 successor 규칙을 정확히 학습합니다
+도달해 successor 규칙을 정확히 학습함.
 ([`metrics.json`](results/synthetic/metrics.json), [`train.log`](results/synthetic/train.log)).
-추론 데모([`predict.log`](results/synthetic/predict.log))도 이를 확인해 줍니다:
+추론 데모([`predict.log`](results/synthetic/predict.log))도 이를 확인함:
 `hell` → `m` (l→m), `kore` → `f` (e→f), `knoc` → `d` (c→d).
 
 학습된 가중치는 텐서별 CSV로 내보낸 뒤([`export.log`](results/synthetic/export.log))
-**Q1.15 signed int16**으로 양자화하고 C 헤더로 생성합니다
-([`quantize.log`](results/synthetic/quantize.log)). 생성된 하드웨어 산출물의 샘플이
-커밋되어 있습니다: [`rnn_weights_q15.h`](results/synthetic/rnn_weights_q15.h),
+**Q1.15 signed int16**으로 양자화하고 C 헤더로 생성
+([`quantize.log`](results/synthetic/quantize.log)). 생성된 하드웨어 산출물의 샘플도
+커밋되어 있음: [`rnn_weights_q15.h`](results/synthetic/rnn_weights_q15.h),
 [`Wx.csv`](results/synthetic/Wx.csv).
 
 **고정소수점 검증.** `src/validate_quantization.py`가 float 모델과 정수 전용 참조
 구현(`src/fixedpoint.py`의 `FixedRNN` — int16 가중치, 확장 누산, 산술 시프트, tanh 앞 포화;
 FPGA가 구현하는 것과 동일한 데이터패스)을 전체 테스트셋에 대해 실행해 예측을
-비교합니다([`validate.log`](results/synthetic/validate.log)):
+비교([`validate.log`](results/synthetic/validate.log)):
 
 | | float | Q1.15 fixed |
 | --- | --- | --- |
@@ -100,24 +102,18 @@ FPGA가 구현하는 것과 동일한 데이터패스)을 전체 테스트셋에
 | 예측 일치율 | — | **1.0000 (800/800)** |
 
 합성 코퍼스의 가중치는 전부 Q1.15 범위 `[-1, 1)` 안에 들어가므로 양자화가 사실상
-무손실이고, 정수 데이터패스가 float 모델을 정확히 재현합니다.
+무손실이고, 정수 데이터패스가 float 모델을 재현.
 
 ### 실제 단어 리스트
 
 [Releases](https://github.com/donghyeoni/vanilla-rnn-fpga-quantization/releases)의
 실제 영어 단어 리스트(`train_original.txt` / `test_original.txt` →
-`data/train.txt` / `data/test.txt`)로 같은 파이프라인을 실행한 결과입니다.
-20 epochs, seed 0. 산출물은 [`results/real_data/`](results/real_data/) 아래에 있습니다
+`data/train.txt` / `data/test.txt`)로 같은 파이프라인을 실행한 결과.
+20 epochs, seed 0. 산출물은 [`results/real_data/`](results/real_data/)
 ([`train.log`](results/real_data/train.log), [`metrics.json`](results/real_data/metrics.json)).
 
-최종 test accuracy는 **0.66**이며, 릴리스된 `nextword_weights_original.pth`는 같은
-테스트셋에서 **0.6750**을 기록합니다([`eval_original.log`](results/real_data/eval_original.log)).
-
-합성 규칙과 달리 실제 철자는 본질적으로 모호해서(`hel` → `hell`? `help`?) 정확도가
-1.0에 한참 못 미치는 지점에서 포화합니다 — 이는 과제 자체의 상한이지 파이프라인
-결함이 아닙니다(위의 합성 실행이 파이프라인 자체는 건전함을 보여줍니다). 추론 데모
-([`predict.log`](results/real_data/predict.log))는 영어답게 동작합니다:
-`appl` → `e`, `tabl` → `e`.
+최종 test accuracy는 **0.66**, 릴리스된 `nextword_weights_original.pth`는 같은
+테스트셋에서 **0.6750**([`eval_original.log`](results/real_data/eval_original.log)).
 
 실데이터 가중치의 export/양자화 로그와 생성 산출물:
 [`export.log`](results/real_data/export.log),
@@ -126,26 +122,25 @@ FPGA가 구현하는 것과 동일한 데이터패스)을 전체 테스트셋에
 [`Wx.csv`](results/real_data/Wx.csv).
 
 **고정소수점 검증.** 릴리스된 원본 가중치로 13,881개 테스트 단어 전체에 대해 같은
-float 대 정수 비교를 실행한 결과입니다([`validate.log`](results/real_data/validate.log)):
+float 대 정수 비교 결과([`validate.log`](results/real_data/validate.log)):
 
 | | float | Q1.15 fixed |
 | --- | --- | --- |
 | test accuracy | 0.6750 | **0.6272** |
 | 예측 일치율 | — | **0.7792** |
 
-합성 가중치와 달리 실데이터 가중치는 Q1.15에 전부 들어가지 않습니다.
+합성 가중치와 달리 실데이터 가중치는 Q1.15에 전부 들어가지 않음.
 **`Wx` 값의 38.8%가 `[-1, 1)` 범위를 벗어나** 양자화 시점에 ±1로 클리핑되며, 이로
-인해 **약 4.8%p의 정확도 손실**이 생깁니다. 이 손실은 아래 [Q포맷 연구](#q포맷-연구)에서
-**Q4.12로 전량 회수**됩니다.
+인해 **약 4.8%p의 정확도 손실**발생. 이 손실은 아래 [Q포맷 연구](#q포맷-연구)에서
+**Q4.12로 전량 회수**.
 
-## Q포맷 연구
+## Q포맷 연구(4.8%p 손실 대응)
 
-위 4.8%p 손실을 출발점으로, 포맷 선택이 정수 경로의 충실도에 어떤 영향을 주는지
-실측한 결과입니다. 산출물은 [`results/q_format_study/`](results/q_format_study/)에
+포맷 선택의 영향 비교. 산출물은 [`results/q_format_study/`](results/q_format_study/)에
 있으며, 모두 릴리스된 `nextword_weights_original.pth`와 13,881개 테스트 단어
-전체로 측정했습니다(float 기준 정확도 0.6750).
+전체로 측정(float 기준 정확도 0.6750).
 
-Q포맷은 int16 비트를 어떻게 **해석**하는지의 문제일 뿐이므로, 어떤 포맷을 고르든
+※Q포맷은 int16 비트를 어떻게 **해석**하는지의 문제일 뿐이므로, 어떤 포맷을 고르든
 DSP·BRAM 사용량은 변하지 않습니다. 바뀌는 것은 누산기의 시프트량뿐입니다.
 
 ### 1. 균일 포맷 스윕
@@ -165,10 +160,10 @@ DSP·BRAM 사용량은 변하지 않습니다. 바뀌는 것은 누산기의 시
 | Q7.9 | ±64 | 1.95e-03 | 0.6750 | −0.01%p | 0.9979 | 0.00% | 0.00% |
 | Q8.8 | ±128 | 3.91e-03 | 0.6743 | +0.06%p | 0.9952 | 0.00% | 0.00% |
 
-**Q4.12에서 일치율이 정확히 1.0000이 되고 4.8%p 손실이 완전히 사라집니다.**
-곡선은 양쪽에서 열화합니다 — 아래로는 범위 부족(클리핑), 위로는 분해능 부족입니다.
+**Q4.12에서 일치율이 정확히 1.0000이 됨.**
+곡선은 양쪽에서 열화 — 아래로는 범위 부족(클리핑), 위로는 분해능 부족.
 `Wx`의 absmax가 5.32이므로 Q3.13(±4)으로는 부족하고 Q4.12(±8)가 이 모델에서
-필요한 **최소** 정수부 폭입니다.
+필요한 **최소** 정수부 폭.
 
 ### 2. 오차 원인 분리
 
