@@ -1,0 +1,8 @@
+# HLS 프로젝트 / 빌드 산출물 (전부 재생성 가능)
+hls_proj/
+build/
+golden.txt
+*.exe
+*.log
+vitis_hls.log
+__pycache__/

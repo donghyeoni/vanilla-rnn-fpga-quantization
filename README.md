@@ -365,6 +365,15 @@ vanilla-rnn-fpga-quantization/
 │   ├── tanh_lut.py       # 정수 전용 tanh 룩업 테이블 (대칭/자르기/보간) + C 배열 출력
 │   └── lut_sweep.py      # 표 크기 대 예측 정확도 스윕
 ├── run_all.py            # 학습 가능한 코퍼스 합성 + train->export->quantize->validate->predict 일괄 실행
+├── hls/                  # HLS 커널 (FixedRNN을 비트 단위로 재현) -- hls/README.md 참고
+│   ├── rnn_kernel.cpp    # 커널 본체 (고정소수점 데이터패스 + tanh 표 조회 + argmax)
+│   ├── rnn_kernel.h      # 형상, 병렬화 파라미터(UNROLL_H), 최상위 함수 선언
+│   ├── rnn_types.h       # 정수 타입 폭 (ap_int / 표준 정수 양쪽 지원)
+│   ├── rnn_kernel_tb.cpp # 테스트벤치 (csim / cosim 공용)
+│   ├── selftest.py       # C 헤더만으로 비트 일치 검증 (torch/데이터셋/Vitis 불필요)
+│   ├── gen_golden.py     # 실데이터 골든 벡터 생성 + 헤더 정합성 검사
+│   ├── run_hls.tcl       # csim / csynth / cosim / sweep 실행
+│   └── collect_reports.py # sweep 리포트 -> 면적-지연시간 CSV
 ├── results/
 │   ├── synthetic/        # 커밋된 산출물(합성 코퍼스): 로그, metrics.json, 샘플 C 헤더 + CSV
 │   ├── real_data/        # 실제 단어 리스트 데이터셋의 커밋된 산출물 (Releases 참고)
@@ -473,9 +482,55 @@ Xilinx VC707 Evaluation Kit. 생성된 헤더를 Vivado / Vitis HLS 프로젝트
 tanh 직전의 포화(랩어라운드가 아님). 헤더의 `FRAC_BITS_*` / `SHIFT_*` / `TANH_LUT`을
 그대로 쓰면 HLS·RTL이 이 참조 모델과 일치함.
 
-**남은 작업.** 합성·배치는 아직 수행하지 않았으므로 자원 사용량과 지연시간
-수치는 없음. 순서는 ① HLS 커널 작성 → ② C/RTL co-simulation으로 예측 일치 확인
-→ ③ `xc7vx485tffg1761-2` 타깃 합성·구현.
+### HLS 커널
+
+[`hls/`](hls/) — `FixedRNN`을 **비트 단위로 재현하는** Vitis HLS 커널. 가중치·포맷
+상수·tanh 표는 생성된 C 헤더에서 가져오고 커널은 로직만 담음. 헤더를 바꾸면(예:
+균일 Q4.12로) 커널은 손대지 않고 재합성만 함. 설계 근거와 실행법은
+[`hls/README.md`](hls/README.md).
+
+검증은 **하나의 정답 기준(FixedRNN 골든 벡터)으로 두 구현을 대조**하는 구조임.
+테스트벤치를 csim과 cosim 양쪽에서 공용으로 씀.
+
+```
+FixedRNN (파이썬)  ==  C++ 커널  ==  생성된 Verilog
+     └── csim ──────────┘   └── cosim ──┘
+```
+
+[`hls/selftest.py`](hls/selftest.py)는 **생성된 C 헤더만으로** 이 검증을 돌림. int16
+가중치를 역양자화하면 `FixedRNN`이 다시 양자화할 때 원래 정수가 복원되므로
+(`quantize(dequantize(q, f), f) == q`), 학습된 `.pth`도 데이터셋도 torch도 Vitis HLS도
+필요 없음. 커널을 일반 `g++`로 컴파일해 대조함(`-DRNN_NO_AP_INT`).
+
+| 검증 항목 | 결과 |
+| --- | --- |
+| 헤더 → `FixedRNN` 복원 (포맷 상수 / 시프트 / tanh 표 / 양자화 가중치 전체) | 무손실 |
+| `UNROLL_H` = 1 / 16 / 128, 400 벡터 (길이 1~32) | **전건 비트 일치** |
+
+`UNROLL_H`는 타임스텝 내부 MAC 병렬화 정도임. 세 값이 모두 같은 예측을 낸다는 것은
+병렬화가 연산 의미를 바꾸지 않고 **면적·지연시간만** 바꾼다는 뜻임.
+
+커널이 참조 구현과 갈리지 않도록 지킨 지점은 네 가지임 — ① 세 항을 각각 시프트한
+뒤 합산(합산 후 일괄 시프트하면 버려지는 하위 비트가 달라짐), ② 포화는 tanh
+직전에만, ③ argmax 비교는 `>`(`>=`면 동점에서 `np.argmax`와 갈림), ④ 은닉 상태
+이중 버퍼(제자리 갱신하면 이미 갱신된 `h[k]`를 읽음).
+
+**남은 작업.** 합성·배치는 아직 수행하지 않았으므로 자원 사용량과 지연시간 수치는
+없음. 순서는 다음과 같음.
+
+| | 단계 | 성격 | 상태 |
+| --- | --- | --- | --- |
+| ① | C simulation | C++ ↔ `FixedRNN` 검증 | **완료** |
+| ② | `csynth` | C++ → Verilog 변환 + 추정 리포트 | |
+| ③ | `cosim` | Verilog ↔ C++ 검증 | |
+| ④ | `UNROLL_H` 스윕 | 면적-지연시간 트레이드오프 표 | |
+| ⑤ | Vivado 구현(P&R) | post-route 사용률·타이밍 | |
+
+②~⑤는 Vitis HLS / Vivado 설치가 필요함. ②의 LUT/DSP/BRAM은 **추정치**이고 구현을
+거치면 특히 LUT이 상당히 달라지므로, 최종 수치로 쓸 것은 ⑤의 post-route 리포트임.
 
 ※XC7VX485T는 무료 Vivado WebPACK 대상이 아님. VC707 키트에 딸린 device-locked
-라이선스가 필요함.
+라이선스가 필요함. 라이선스가 없으면 파트를 WebPACK 대상 7-series(예:
+`xc7a200tfbg484-2`)로 바꿔 리소스 특성을 확인하고 최종 타깃만 VC707로 명시하면 됨 —
+같은 7-series라 DSP48E1 / BRAM18 구조가 같음.
+[`hls/run_hls.tcl`](hls/run_hls.tcl)이 파트를 인자로 받음.
