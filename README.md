@@ -1,4 +1,4 @@
-# vanilla-rnn-fpga-quantization
+# RNN 가중치의 FPGA용 고정소수점 양자화
 
 **vanilla RNN**을 **Q1.15 고정소수점** int16 가중치로 변환해,
 FPGA 설계에서 바로 `#include`할 수 있는 C 헤더 제작
